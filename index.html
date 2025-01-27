@@ -1,24 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>災害用アプリ</title>
-<link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCkoUJxqRcLwv/Xnwulf5/mXTczIZj1lnKAdghPY="
-      crossorigin=""></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>災害用アプリ</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="map"></div>
-  <div id="layer-controls">
-    <button onclick="toggleLayer('hazard')">ハザードマップ</button>
-    <button onclick="toggleLayer('shelter')">避難所</button>
-    <button onclick="toggleLayer('shop')">お店情報</button>
-  </div>
-  <script src="script.js"></script>
+    <header>
+        <h1>災害用アプリ</h1>
+    </header>
+
+    <main>
+        <section id="map-section">
+            <h2>地図</h2>
+            <div id="map" style="height: 400px;"></div>
+        </section>
+
+        <section id="message-board">
+            <h2>伝言掲示板</h2>
+            <form id="message-form">
+                <input type="text" id="message-input" placeholder="伝言を入力してください">
+                <button type="submit">投稿</button>
+            </form>
+            <ul id="message-list"></ul>
+        </section>
+
+        <section id="disaster-kit">
+            <h2>防災グッズ管理</h2>
+            <form id="kit-form">
+                <input type="text" id="item-name" placeholder="アイテム名">
+                <input type="number" id="item-quantity" placeholder="数量">
+                <input type="date" id="item-expiry">
+                <button type="submit">追加</button>
+            </form>
+            <ul id="kit-list"></ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 災害用アプリ</p>
+    </footer>
+
+    <script src="scripts.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
 </body>
 </html>
