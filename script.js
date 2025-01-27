@@ -1,122 +1,52 @@
-var map = L.map('map').setView([35.6895, 139.6917], 13); // 東京駅周辺を初期表示
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
 
-L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-    attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル</a>'
-}).addTo(map);
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 10px 0;
+    text-align: center;
+}
 
-var hazardLayer = L.layerGroup(); // ハザードマップレイヤー (最初は非表示)
-var shelterLayer = L.layerGroup(); // 避難所レイヤー (最初は非表示)
-var shopLayer = L.layerGroup();   // お店情報レイヤー (最初は非表示)
+main {
+    padding: 20px;
+}
 
-// 仮のハザードマップデータ (geojson形式を想定)
-var hazardData = {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [139.691, 35.688],
-            [139.693, 35.690],
-            [139.695, 35.687],
-            [139.691, 35.688]
-          ]
-        ]
-      }
-    }
-  ]
-};
+section {
+    margin-bottom: 20px;
+}
 
-// 仮の避難所データ (geojson形式を想定)
-var shelterData = {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "〇〇小学校",
-        "capacity": "500人"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [139.692, 35.689]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "△△公民館",
-        "capacity": "300人"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [139.694, 35.686]
-      }
-    }
-  ]
-};
+h2 {
+    color: #333;
+}
 
-// 仮のお店データ (geojson形式を想定)
-var shopData = {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "□□スーパー",
-        "category": "スーパー",
-        "status": "営業中"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [139.693, 35.687]
-      }
-    }
-  ]
-};
+#map {
+    width: 100%;
+    height: 400px;
+    background-color: #ccc;
+}
 
+form {
+    margin-bottom: 20px;
+}
 
-// ハザードマップレイヤーのgeojson表示 (仮データ)
-L.geoJSON(hazardData).addTo(hazardLayer);
+input, button {
+    padding: 10px;
+    margin-right: 10px;
+}
 
-// 避難所レイヤーのgeojson表示 (仮データ)
-L.geoJSON(shelterData, {
-  pointToLayer: function (feature, latlng) {
-    return L.marker(latlng)
-      .bindPopup("<b>" + feature.properties.name + "</b><br>収容人数: " + feature.properties.capacity);
-  }
-}).addTo(shelterLayer);
+ul {
+    list-style-type: none;
+    padding: 0;
+}
 
-// お店情報レイヤーのgeojson表示 (仮データ)
-L.geoJSON(shopData, {
-  pointToLayer: function (feature, latlng) {
-    return L.marker(latlng)
-      .bindPopup("<b>" + feature.properties.name + "</b><br>カテゴリ: " + feature.properties.category + "<br>状況: " + feature.properties.status);
-  }
-}).addTo(shopLayer);
-
-
-function toggleLayer(layerName) {
-  if (layerName === 'hazard') {
-    if (map.hasLayer(hazardLayer)) {
-      map.removeLayer(hazardLayer);
-    } else {
-      map.addLayer(hazardLayer);
-    }
-  } else if (layerName === 'shelter') {
-    if (map.hasLayer(shelterLayer)) {
-      map.removeLayer(shelterLayer);
-    } else {
-      map.addLayer(shelterLayer);
-    }
-  } else if (layerName === 'shop') {
-    if (map.hasLayer(shopLayer)) {
-      map.removeLayer(shopLayer);
-    } else {
-      map.addLayer(shopLayer);
-    }
-  }
+li {
+    background-color: #fff;
+    padding: 10px;
+    margin-bottom: 5px;
+    border: 1px solid #ddd;
 }
