@@ -1,0 +1,15 @@
+#map {
+  height: 500px; /* 地図の高さ */
+  width: 100%;
+}
+
+#layer-controls {
+  margin-top: 10px;
+}
+
+#layer-controls button {
+  padding: 8px 12px;
+  margin-right: 5px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
