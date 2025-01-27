@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>災害用アプリ</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCkoUJxqRcLwv/Xnwulf5/mXTczIZj1lnKAdghPY="
+      crossorigin=""></script>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="layer-controls">
+    <button onclick="toggleLayer('hazard')">ハザードマップ</button>
+    <button onclick="toggleLayer('shelter')">避難所</button>
+    <button onclick="toggleLayer('shop')">お店情報</button>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
