@@ -1,15 +1,40 @@
-#map {
-  height: 500px; /* 地図の高さ */
-  width: 100%;
+// Google Mapsの初期化
+function initMap() {
+    const map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 35.6895, lng: 139.6917 }, // 東京の座標
+        zoom: 10
+    });
 }
 
-#layer-controls {
-  margin-top: 10px;
-}
+// 伝言掲示板の機能
+document.getElementById('message-form').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const messageInput = document.getElementById('message-input');
+    const message = messageInput.value;
 
-#layer-controls button {
-  padding: 8px 12px;
-  margin-right: 5px;
-  border: 1px solid #ccc;
-  cursor: pointer;
-}
+    if (message) {
+        const messageList = document.getElementById('message-list');
+        const li = document.createElement('li');
+        li.textContent = message;
+        messageList.appendChild(li);
+        messageInput.value = '';
+    }
+});
+
+// 防災グッズ管理の機能
+document.getElementById('kit-form').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const itemName = document.getElementById('item-name').value;
+    const itemQuantity = document.getElementById('item-quantity').value;
+    const itemExpiry = document.getElementById('item-expiry').value;
+
+    if (itemName && itemQuantity && itemExpiry) {
+        const kitList = document.getElementById('kit-list');
+        const li = document.createElement('li');
+        li.textContent = `${itemName} - 数量: ${itemQuantity} - 期限: ${itemExpiry}`;
+        kitList.appendChild(li);
+
+        // フォームをリセット
+        document.getElementById('kit-form').reset();
+    }
+});
