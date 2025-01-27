@@ -3,46 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>災害用アプリ</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>国土地理院地図表示</title>
+    <!-- LeafletのCSSとJavaScriptを読み込む -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>災害用アプリ</h1>
-    </header>
+    <h1>国土地理院地図表示</h1>
+    <div id="map"></div>
 
-    <main>
-        <section id="map-section">
-            <h2>地図</h2>
-            <div id="map" style="height: 400px;"></div>
-        </section>
+    <script>
+        // 地図の初期化
+        const map = L.map('map').setView([35.6895, 139.6917], 10); // 東京の座標とズームレベル
 
-        <section id="message-board">
-            <h2>伝言掲示板</h2>
-            <form id="message-form">
-                <input type="text" id="message-input" placeholder="伝言を入力してください">
-                <button type="submit">投稿</button>
-            </form>
-            <ul id="message-list"></ul>
-        </section>
-
-        <section id="disaster-kit">
-            <h2>防災グッズ管理</h2>
-            <form id="kit-form">
-                <input type="text" id="item-name" placeholder="アイテム名">
-                <input type="number" id="item-quantity" placeholder="数量">
-                <input type="date" id="item-expiry">
-                <button type="submit">追加</button>
-            </form>
-            <ul id="kit-list"></ul>
-        </section>
-    </main>
-
-    <footer>
-        <p>&copy; 2023 災害用アプリ</p>
-    </footer>
-
-    <script src="scripts.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
+        // 地理院タイルを表示
+        L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+            attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',
+            maxZoom: 18,
+        }).addTo(map);
+    </script>
 </body>
 </html>
