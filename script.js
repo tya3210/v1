@@ -1,52 +1,31 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
-}
+// 地図の初期化
+const map = L.map('map').setView([35.6895, 139.6917], 10);
 
-header {
-    background-color: #333;
-    color: #fff;
-    padding: 10px 0;
-    text-align: center;
-}
+// 地理院タイルのレイヤーを定義
+const standardMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+    attribution: '国土地理院',
+    maxZoom: 18,
+});
 
-main {
-    padding: 20px;
-}
+const paleMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+    attribution: '国土地理院',
+    maxZoom: 18,
+});
 
-section {
-    margin-bottom: 20px;
-}
+const aerialPhoto = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', {
+    attribution: '国土地理院',
+    maxZoom: 18,
+});
 
-h2 {
-    color: #333;
-}
+// レイヤーを追加
+const baseLayers = {
+    "標準地図": standardMap,
+    "淡色地図": paleMap,
+    "空中写真": aerialPhoto,
+};
 
-#map {
-    width: 100%;
-    height: 400px;
-    background-color: #ccc;
-}
+// レイヤーコントロールを追加
+L.control.layers(baseLayers).addTo(map);
 
-form {
-    margin-bottom: 20px;
-}
-
-input, button {
-    padding: 10px;
-    margin-right: 10px;
-}
-
-ul {
-    list-style-type: none;
-    padding: 0;
-}
-
-li {
-    background-color: #fff;
-    padding: 10px;
-    margin-bottom: 5px;
-    border: 1px solid #ddd;
-}
+// 初期表示のレイヤー
+standardMap.addTo(map);
