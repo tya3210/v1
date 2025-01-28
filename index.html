@@ -3,34 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>防災アプリ</title>
-    <!-- Leaflet CSS -->
+    <title>総合防災支援アプリ</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        body {
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --emergency-red: #e74c3c;
+            --safe-green: #2ecc71;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
         }
 
         #app-container {
             display: flex;
+            flex-direction: column;
             height: 100vh;
         }
 
         #main-map {
-            flex: 2;
-            height: 100%;
+            flex: 1;
+            background: #f8f9fa;
+            position: relative;
         }
 
         .sidebar {
-            flex: 1;
-            padding: 20px;
-            background: #f0f0f0;
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            box-shadow: -2px 0 15px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            right: -100%;
+            bottom: 0;
+            transition: transform 0.3s ease;
+            z-index: 1000;
             overflow-y: auto;
         }
 
+        .sidebar.active {
+            transform: translateX(-100%);
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-button.active {
+            background: var(--secondary-color);
+            color: white;
+        }
+
         .tab-content {
+            padding: 20px;
             display: none;
         }
 
@@ -38,104 +82,214 @@
             display: block;
         }
 
-        .medical-info {
-            background: white;
-            padding: 15px;
-            margin-bottom: 20px;
+        .medical-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .medical-form label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .medical-form textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        .message-list {
+            margin-top: 15px;
+        }
+
+        .message-item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .floating-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            z-index: 1100;
+        }
+
+        .emergency-alert {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: var(--emergency-red);
+            color: white;
+            padding: 15px 25px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            animation: pulse 1.5s infinite;
+            z-index: 1200;
+            display: none;
         }
 
-        .layer-control {
-            margin: 10px 0;
+        .context-menu {
+            position: absolute;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 10000;
+            border-radius: 6px;
+            padding: 8px 0;
+            display: none;
         }
 
-        .emergency {
-            color: red;
-            font-weight: bold;
+        .context-menu-item {
+            padding: 8px 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .username-tag {
+            position: absolute;
+            background: var(--secondary-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            transform: translateY(-32px);
+            white-space: nowrap;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @media (min-width: 768px) {
+            #app-container {
+                flex-direction: row;
+            }
+
+            .sidebar {
+                position: relative;
+                right: 0;
+                transform: none;
+                box-shadow: none;
+            }
         }
     </style>
 </head>
 <body>
     <div id="app-container">
-        <!-- メイン地図表示 -->
         <div id="main-map"></div>
 
-        <!-- サイドバー -->
         <div class="sidebar">
-            <!-- タブ切り替え -->
-            <div class="tabs">
-                <button onclick="switchTab('map-control')" class="active">地図</button>
-                <button onclick="switchTab('medical-chart')">防災カルテ</button>
-                <button onclick="switchTab('messages')">伝言板</button>
+            <div class="tab-header">
+                <button class="tab-button active" data-tab="hazard">ハザード</button>
+                <button class="tab-button" data-tab="medical">健康情報</button>
+                <button class="tab-button" data-tab="messages">伝言板</button>
             </div>
 
-            <!-- 地図制御パネル -->
-            <div id="map-control" class="tab-content active">
-                <h3>ハザードマップ</h3>
-                <div class="layer-control">
-                    <label>
-                        <input type="checkbox" id="flood-layer" onchange="toggleLayer('flood')">
+            <div id="hazard" class="tab-content active">
+                <h2 style="padding: 20px;">ハザードマップ設定</h2>
+                <div style="padding: 0 20px 20px;">
+                    <label class="layer-toggle">
+                        <input type="checkbox" id="flood-layer">
                         洪水リスク
                     </label>
-                    <label>
-                        <input type="checkbox" id="landslide-layer" onchange="toggleLayer('landslide')">
+                    <label class="layer-toggle">
+                        <input type="checkbox" id="landslide-layer">
                         土砂災害リスク
                     </label>
                 </div>
             </div>
 
-            <!-- 防災カルテ -->
-            <div id="medical-chart" class="tab-content">
-                <h3>パーソナル防災カルテ</h3>
-                <div class="medical-info">
-                    <form id="medical-form">
-                        <label>アレルギー情報:
-                            <textarea id="allergies"></textarea>
-                        </label>
-                        <label>常用薬:
-                            <textarea id="medications"></textarea>
-                        </label>
-                        <button type="button" onclick="saveMedicalInfo()">保存</button>
+            <div id="medical" class="tab-content">
+                <div style="padding: 20px;">
+                    <h2>防災カルテ</h2>
+                    <form class="medical-form">
+                        <div class="form-group">
+                            <label>健康状態</label>
+                            <textarea id="health-status" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>アレルギー情報</label>
+                            <textarea id="allergies" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>常用薬</label>
+                            <textarea id="medications" rows="3"></textarea>
+                        </div>
+                        <button type="button" class="save-button" style="margin-top: 15px; padding: 10px 20px; background: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            保存
+                        </button>
                     </form>
                 </div>
             </div>
 
-            <!-- 伝言板 -->
             <div id="messages" class="tab-content">
-                <h3>伝言掲示板</h3>
-                <div id="message-list"></div>
-                <button onclick="addMessageToMap()">地図に伝言を追加</button>
+                <div style="padding: 20px;">
+                    <h2>伝言板</h2>
+                    <div class="message-list" id="message-list"></div>
+                    <button class="add-message-button" style="margin-top: 15px; padding: 10px 20px; background: var(--safe-green); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        新しい伝言を追加
+                    </button>
+                </div>
             </div>
         </div>
+
+        <div class="emergency-alert" id="emergency-alert">
+            🚨 緊急事態！直ちに避難してください！
+        </div>
+
+        <button class="floating-button" id="menu-button">☰</button>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
-        // 地図初期化
-        const map = L.map('main-map').setView([35.681236, 139.767125], 13);
-
-        // 国土地理院の標準地図
-        L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-            attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
-        }).addTo(map);
-
-        // レイヤー管理
-        const overlayLayers = {
-            flood: L.layerGroup(),
-            landslide: L.layerGroup()
+        const state = {
+            map: null,
+            layers: {
+                flood: L.layerGroup(),
+                landslide: L.layerGroup()
+            },
+            messages: JSON.parse(localStorage.getItem('messages')) || [],
+            medicalData: JSON.parse(localStorage.getItem('medicalData')) || {},
+            currentMarker: null,
+            longPressTimer: null
         };
 
-        // サンプルデータ（実際にはAPIから取得）
-        function addSampleLayers() {
-            // 洪水リスク（サンプル領域）
+        function initMap() {
+            state.map = L.map('main-map', {
+                center: [35.681236, 139.767125],
+                zoom: 13,
+                preferCanvas: true
+            });
+
+            L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',
+                maxZoom: 18,
+                minZoom: 5
+            }).addTo(state.map);
+
             L.rectangle([[35.67, 139.75], [35.69, 139.77]], {
                 color: "#0066ff",
                 fillOpacity: 0.2
-            }).addTo(overlayLayers.flood);
+            }).addTo(state.layers.flood);
 
-            // 土砂災害リスク（サンプル領域）
             L.polygon([
                 [35.68, 139.76],
                 [35.685, 139.765],
@@ -143,50 +297,210 @@
             ], {
                 color: "#ff6600",
                 fillOpacity: 0.2
-            }).addTo(overlayLayers.landslide);
-        }
-        addSampleLayers();
-
-        // タブ切り替え機能
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.getElementById(tabName).classList.add('active');
+            }).addTo(state.layers.landslide);
         }
 
-        // レイヤー表示切替
-        function toggleLayer(layerType) {
-            if (document.getElementById(`${layerType}-layer`).checked) {
-                overlayLayers[layerType].addTo(map);
-            } else {
-                overlayLayers[layerType].remove();
+        function saveToStorage(key, data) {
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+                return true;
+            } catch (e) {
+                console.error('保存エラー:', e);
+                showAlert('データの保存に失敗しました', 'error');
+                return false;
             }
         }
 
-        // 防災カルテ保存
-        function saveMedicalInfo() {
-            const medicalData = {
-                allergies: document.getElementById('allergies').value,
-                medications: document.getElementById('medications').value
+        function setupMessages() {
+            const renderMessages = () => {
+                const container = document.getElementById('message-list');
+                container.innerHTML = state.messages.map((msg, index) => `
+                    <div class="message-item" data-index="${index}">
+                        <p>${msg.user ? `<strong>${msg.user}:</strong> ` : ''}${msg.text}</p>
+                        <small>
+                            ${new Date(msg.timestamp).toLocaleString()} 
+                            (${msg.coords.lat.toFixed(4)}, ${msg.coords.lng.toFixed(4)})
+                        </small>
+                    </div>
+                `).join('');
             };
-            localStorage.setItem('medicalChart', JSON.stringify(medicalData));
-            alert('情報を保存しました');
+
+            const addMarkerWithUsername = (msg) => {
+                const marker = L.marker(msg.coords)
+                    .addTo(state.map)
+                    .bindPopup(`<b>${msg.user || '匿名'}</b><br>${msg.text}`);
+                
+                if (msg.user) {
+                    const usernameTag = L.divIcon({
+                        className: 'username-tag',
+                        html: msg.user,
+                        iconSize: [null, 24]
+                    });
+                    L.marker(msg.coords, { icon: usernameTag }).addTo(state.map);
+                }
+
+                marker.on('mousedown', (e) => handleLongPressStart(e, marker));
+                marker.on('mouseup', handleLongPressEnd);
+                marker.on('mouseout', handleLongPressEnd);
+
+                return marker;
+            };
+
+            state.messages.forEach(msg => {
+                msg.marker = addMarkerWithUsername(msg);
+            });
+
+            document.querySelector('.add-message-button').addEventListener('click', async () => {
+                const user = prompt('ユーザー名を入力（任意）:') || '匿名';
+                const message = prompt('伝言を入力（300文字以内）:');
+                
+                if (message && message.length <= 300) {
+                    state.map.once('click', e => {
+                        const newMsg = {
+                            user,
+                            text: message,
+                            coords: e.latlng,
+                            timestamp: Date.now()
+                        };
+                        
+                        newMsg.marker = addMarkerWithUsername(newMsg);
+                        state.messages.push(newMsg);
+                        saveToStorage('messages', state.messages);
+                        renderMessages();
+                    });
+                    alert('地図上の位置を選択してください');
+                }
+            });
+
+            renderMessages();
         }
 
-        // 伝言追加機能
-        function addMessageToMap() {
-            const message = prompt('伝言を入力してください');
-            if (message) {
-                map.once('click', function(e) {
-                    const marker = L.marker(e.latlng).addTo(map)
-                        .bindPopup(message);
-                    document.getElementById('message-list').innerHTML += 
-                        `<div class="message">${message} (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})</div>`;
-                });
-                alert('地図をクリックして位置を選択してください');
-            }
+        function handleLongPressStart(e, marker) {
+            state.currentMarker = marker;
+            state.longPressTimer = setTimeout(() => {
+                showContextMenu(e.originalEvent.clientX, e.originalEvent.clientY);
+            }, 1000);
         }
+
+        function handleLongPressEnd() {
+            clearTimeout(state.longPressTimer);
+        }
+
+        function showContextMenu(x, y) {
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y}px`;
+            
+            menu.innerHTML = `
+                <div class="context-menu-item" onclick="handleEditMessage()">編集</div>
+                <div class="context-menu-item" onclick="handleDeleteMessage()">削除</div>
+            `;
+            
+            document.body.appendChild(menu);
+            menu.style.display = 'block';
+            
+            const closeMenu = () => {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            };
+            
+            document.addEventListener('click', closeMenu);
+        }
+
+        window.handleEditMessage = () => {
+            if (!state.currentMarker) return;
+            
+            const msgIndex = state.messages.findIndex(m => m.marker === state.currentMarker);
+            const newText = prompt('メッセージを編集:', state.messages[msgIndex].text);
+            
+            if (newText && newText.length <= 300) {
+                state.messages[msgIndex].text = newText;
+                state.currentMarker.setPopupContent(`<b>${state.messages[msgIndex].user || '匿名'}</b><br>${newText}`);
+                saveToStorage('messages', state.messages);
+                document.querySelector(`.message-item[data-index="${msgIndex}"] p`).innerHTML = 
+                    `${state.messages[msgIndex].user ? `<strong>${state.messages[msgIndex].user}:</strong> ` : ''}${newText}`;
+            }
+        };
+
+        window.handleDeleteMessage = () => {
+            if (!state.currentMarker) return;
+            
+            if (confirm('本当に削除しますか？')) {
+                const msgIndex = state.messages.findIndex(m => m.marker === state.currentMarker);
+                state.map.removeLayer(state.messages[msgIndex].marker);
+                state.messages.splice(msgIndex, 1);
+                saveToStorage('messages', state.messages);
+                document.querySelector(`.message-item[data-index="${msgIndex}"]`).remove();
+            }
+        };
+
+        function setupMedicalData() {
+            const loadData = () => {
+                document.getElementById('health-status').value = state.medicalData.healthStatus || '';
+                document.getElementById('allergies').value = state.medicalData.allergies || '';
+                document.getElementById('medications').value = state.medicalData.medications || '';
+            };
+
+            document.querySelector('.save-button').addEventListener('click', () => {
+                state.medicalData = {
+                    healthStatus: document.getElementById('health-status').value,
+                    allergies: document.getElementById('allergies').value,
+                    medications: document.getElementById('medications').value,
+                    lastUpdated: Date.now()
+                };
+                if (saveToStorage('medicalData', state.medicalData)) {
+                    showAlert('健康情報を保存しました', 'success');
+                }
+            });
+
+            loadData();
+        }
+
+        function setupUI() {
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    const tabId = button.dataset.tab;
+                    button.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+
+            document.querySelectorAll('.layer-toggle input').forEach(toggle => {
+                toggle.addEventListener('change', e => {
+                    const layer = e.target.id.replace('-layer', '');
+                    if (e.target.checked) {
+                        state.layers[layer].addTo(state.map);
+                    } else {
+                        state.map.removeLayer(state.layers[layer]);
+                    }
+                });
+            });
+
+            document.getElementById('menu-button').addEventListener('click', () => {
+                document.querySelector('.sidebar').classList.toggle('active');
+            });
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertBox = document.createElement('div');
+            alertBox.className = `alert-${type}`;
+            alertBox.textContent = message;
+            document.body.appendChild(alertBox);
+            setTimeout(() => alertBox.remove(), 3000);
+        }
+
+        function initApp() {
+            initMap();
+            setupMedicalData();
+            setupMessages();
+            setupUI();
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
