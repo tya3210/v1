@@ -1,39 +1,192 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.3.0/ol.css">
-<script src="https://cdn.jsdelivr.net/npm/ol@v7.3.0/dist/ol.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>防災アプリ - 地理院地図</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>防災アプリ</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #main-map {
+            flex: 2;
+            height: 100%;
+        }
+
+        .sidebar {
+            flex: 1;
+            padding: 20px;
+            background: #f0f0f0;
+            overflow-y: auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .medical-info {
+            background: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .layer-control {
+            margin: 10px 0;
+        }
+
+        .emergency {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>防災アプリ</h1>
-    </header>
+    <div id="app-container">
+        <!-- メイン地図表示 -->
+        <div id="main-map"></div>
 
-    <main>
-        <section id="map">
-            <h2>地理院地図</h2>
-            <div id="map-container" style="height: 600px;"></div>
-        </section>
+        <!-- サイドバー -->
+        <div class="sidebar">
+            <!-- タブ切り替え -->
+            <div class="tabs">
+                <button onclick="switchTab('map-control')" class="active">地図</button>
+                <button onclick="switchTab('medical-chart')">防災カルテ</button>
+                <button onclick="switchTab('messages')">伝言板</button>
+            </div>
 
-        <section id="message-board">
-            <h2>伝言掲示板</h2>
-            <form id="message-form">
-                <label for="message">伝言:</label>
-                <textarea id="message" required></textarea>
-                <button type="submit">投稿</button>
-            </form>
-            <ul id="message-list"></ul>
-        </section>
-    </main>
+            <!-- 地図制御パネル -->
+            <div id="map-control" class="tab-content active">
+                <h3>ハザードマップ</h3>
+                <div class="layer-control">
+                    <label>
+                        <input type="checkbox" id="flood-layer" onchange="toggleLayer('flood')">
+                        洪水リスク
+                    </label>
+                    <label>
+                        <input type="checkbox" id="landslide-layer" onchange="toggleLayer('landslide')">
+                        土砂災害リスク
+                    </label>
+                </div>
+            </div>
 
-    <footer>
-        <p>&copy; 2023 防災アプリ</p>
-    </footer>
+            <!-- 防災カルテ -->
+            <div id="medical-chart" class="tab-content">
+                <h3>パーソナル防災カルテ</h3>
+                <div class="medical-info">
+                    <form id="medical-form">
+                        <label>アレルギー情報:
+                            <textarea id="allergies"></textarea>
+                        </label>
+                        <label>常用薬:
+                            <textarea id="medications"></textarea>
+                        </label>
+                        <button type="button" onclick="saveMedicalInfo()">保存</button>
+                    </form>
+                </div>
+            </div>
 
-    <script src="scripts.js"></script>
+            <!-- 伝言板 -->
+            <div id="messages" class="tab-content">
+                <h3>伝言掲示板</h3>
+                <div id="message-list"></div>
+                <button onclick="addMessageToMap()">地図に伝言を追加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // 地図初期化
+        const map = L.map('main-map').setView([35.681236, 139.767125], 13);
+
+        // 国土地理院の標準地図
+        L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+            attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
+        }).addTo(map);
+
+        // レイヤー管理
+        const overlayLayers = {
+            flood: L.layerGroup(),
+            landslide: L.layerGroup()
+        };
+
+        // サンプルデータ（実際にはAPIから取得）
+        function addSampleLayers() {
+            // 洪水リスク（サンプル領域）
+            L.rectangle([[35.67, 139.75], [35.69, 139.77]], {
+                color: "#0066ff",
+                fillOpacity: 0.2
+            }).addTo(overlayLayers.flood);
+
+            // 土砂災害リスク（サンプル領域）
+            L.polygon([
+                [35.68, 139.76],
+                [35.685, 139.765],
+                [35.68, 139.77]
+            ], {
+                color: "#ff6600",
+                fillOpacity: 0.2
+            }).addTo(overlayLayers.landslide);
+        }
+        addSampleLayers();
+
+        // タブ切り替え機能
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // レイヤー表示切替
+        function toggleLayer(layerType) {
+            if (document.getElementById(`${layerType}-layer`).checked) {
+                overlayLayers[layerType].addTo(map);
+            } else {
+                overlayLayers[layerType].remove();
+            }
+        }
+
+        // 防災カルテ保存
+        function saveMedicalInfo() {
+            const medicalData = {
+                allergies: document.getElementById('allergies').value,
+                medications: document.getElementById('medications').value
+            };
+            localStorage.setItem('medicalChart', JSON.stringify(medicalData));
+            alert('情報を保存しました');
+        }
+
+        // 伝言追加機能
+        function addMessageToMap() {
+            const message = prompt('伝言を入力してください');
+            if (message) {
+                map.once('click', function(e) {
+                    const marker = L.marker(e.latlng).addTo(map)
+                        .bindPopup(message);
+                    document.getElementById('message-list').innerHTML += 
+                        `<div class="message">${message} (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})</div>`;
+                });
+                alert('地図をクリックして位置を選択してください');
+            }
+        }
+    </script>
 </body>
 </html>
