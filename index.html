@@ -3,30 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日本全体の標準地図</title>
-    <!-- LeafletのCSSとJavaScriptを読み込む -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        #map {
-            height: 100vh; /* 画面全体に地図を表示 */
-            width: 100%;
-        }
-    </style>
+    <title>防災アプリ - 地理院地図</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="map"></div>
+    <header>
+        <h1>防災アプリ</h1>
+    </header>
 
-    <script>
-        // 地図の初期化
-        const map = L.map('map').setView([36.5, 138.5], 5); // 日本全体を表示するための中心座標とズームレベル
+    <main>
+        <section id="map">
+            <h2>地理院地図</h2>
+            <div id="map-container" style="height: 600px;"></div>
+        </section>
 
-        // 地理院タイル（標準地図）を表示
-        L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-            attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',
-            maxZoom: 18,
-            minZoom: 5, // 日本全体を表示するための最小ズームレベル
-        }).addTo(map);
-    </script>
+        <section id="message-board">
+            <h2>伝言掲示板</h2>
+            <form id="message-form">
+                <label for="message">伝言:</label>
+                <textarea id="message" required></textarea>
+                <button type="submit">投稿</button>
+            </form>
+            <ul id="message-list"></ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 防災アプリ</p>
+    </footer>
+
+    <script src="scripts.js"></script>
 </body>
 </html>
