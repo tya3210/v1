@@ -1,40 +1,68 @@
-// Google Mapsの初期化
-function initMap() {
-    const map = new google.maps.Map(document.getElementById('map'), {
-        center: { lat: 35.6895, lng: 139.6917 }, // 東京の座標
-        zoom: 10
-    });
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
 }
 
-// 伝言掲示板の機能
-document.getElementById('message-form').addEventListener('submit', function(event) {
-    event.preventDefault();
-    const messageInput = document.getElementById('message-input');
-    const message = messageInput.value;
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 10px 0;
+    text-align: center;
+}
 
-    if (message) {
-        const messageList = document.getElementById('message-list');
-        const li = document.createElement('li');
-        li.textContent = message;
-        messageList.appendChild(li);
-        messageInput.value = '';
-    }
-});
+main {
+    padding: 20px;
+}
 
-// 防災グッズ管理の機能
-document.getElementById('kit-form').addEventListener('submit', function(event) {
-    event.preventDefault();
-    const itemName = document.getElementById('item-name').value;
-    const itemQuantity = document.getElementById('item-quantity').value;
-    const itemExpiry = document.getElementById('item-expiry').value;
+section {
+    margin-bottom: 20px;
+}
 
-    if (itemName && itemQuantity && itemExpiry) {
-        const kitList = document.getElementById('kit-list');
-        const li = document.createElement('li');
-        li.textContent = `${itemName} - 数量: ${itemQuantity} - 期限: ${itemExpiry}`;
-        kitList.appendChild(li);
+form {
+    margin-bottom: 20px;
+}
 
-        // フォームをリセット
-        document.getElementById('kit-form').reset();
-    }
-});
+label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+textarea, button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+button {
+    background-color: #333;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #555;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    background-color: #fff;
+    padding: 10px;
+    margin-bottom: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#map-container {
+    width: 100%;
+    height: 600px;
+    background-color: #ccc;
+}
