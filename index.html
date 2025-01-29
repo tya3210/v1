@@ -3,446 +3,504 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>共有ハザードマップ</title>
+    <title>総合防災支援アプリ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        body {
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --emergency-red: #e74c3c;
+            --safe-green: #2ecc71;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
-            font-family: sans-serif;
+            padding: 0;
         }
-        #map {
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+        }
+
+        #app-container {
+            display: flex;
+            flex-direction: column;
             height: 100vh;
-            width: 100%;
         }
-        .control-panel {
-            position: fixed;
-            top: 10px;
-            right: 10px;
+
+        #main-map {
+            flex: 1;
+            background: #f8f9fa;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 100%;
+            max-width: 400px;
             background: white;
+            box-shadow: -2px 0 15px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            right: -100%;
+            bottom: 0;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar.active {
+            transform: translateX(-100%);
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tab-button {
+            flex: 1;
             padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            max-width: 300px;
-        }
-        .layer-controls {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-        .mode-controls {
-            margin-bottom: 10px;
-        }
-        .control-button {
-            padding: 8px 16px;
-            margin: 0 5px;
             border: none;
-            border-radius: 4px;
+            background: #f8f9fa;
             cursor: pointer;
-            background-color: #f8f9fa;
+            transition: all 0.2s;
         }
-        .control-button.active {
-            background-color: #1976d2;
+
+        .tab-button.active {
+            background: var(--secondary-color);
             color: white;
         }
-        .share-controls {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-        .share-button {
-            background-color: #28a745;
-            color: white;
-            width: 100%;
-            margin-top: 5px;
-        }
-        .message-form {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
+
+        .tab-content {
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            width: 300px;
             display: none;
         }
-        .form-input {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+
+        .tab-content.active {
+            display: block;
         }
-        .form-textarea {
+
+        .medical-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .medical-form label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .medical-form textarea {
             width: 100%;
-            height: 100px;
-            margin-bottom: 10px;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             resize: vertical;
         }
-        .button-group {
-            display: flex;
-            gap: 10px;
+
+        .message-list {
+            margin-top: 15px;
         }
-        .button-group button {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+
+        .message-item {
+            background: #f8f9fa;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 4px solid var(--secondary-color);
         }
-        .save-button { background-color: #1976d2; color: white; }
-        .delete-button { background-color: #dc3545; color: white; }
-        .cancel-button { background-color: #6c757d; color: white; }
-        .popup-content {
-            max-width: 250px;
-        }
-        .popup-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .popup-message {
-            margin-bottom: 5px;
-        }
-        .popup-meta {
-            font-size: 0.8em;
-            color: #666;
-        }
-        .layer-checkbox {
-            margin: 5px 0;
-            display: block;
-        }
-        #currentLocationButton {
+
+        .floating-button {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            z-index: 1000;
-            padding: 10px;
-            background-color: white;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        #currentLocationButton:hover {
-            background-color: #f0f0f0;
-        }
-        .custom-red-marker {
-            filter: hue-rotate(300deg) saturate(200%);
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(0.95); }
-        }
-        .delete-menu {
-            text-align: center;
-            margin-top: 10px;
-        }
-        .delete-btn {
-            background-color: #dc3545;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--secondary-color);
             color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
             border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            z-index: 1100;
+        }
+
+        .emergency-alert {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: var(--emergency-red);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            animation: pulse 1.5s infinite;
+            z-index: 1200;
+            display: none;
+        }
+
+        .context-menu {
+            position: absolute;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 10000;
+            border-radius: 6px;
+            padding: 8px 0;
+            display: none;
+        }
+
+        .context-menu-item {
+            padding: 8px 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background: #f5f5f5;
+        }
+
+        .username-tag {
+            position: absolute;
+            background: var(--secondary-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            transform: translateY(-32px);
+            white-space: nowrap;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @media (min-width: 768px) {
+            #app-container {
+                flex-direction: row;
+            }
+
+            .sidebar {
+                position: relative;
+                right: 0;
+                transform: none;
+                box-shadow: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="control-panel">
-        <div class="mode-controls">
-            <button id="viewMode" class="control-button active">閲覧</button>
-            <button id="editMode" class="control-button">編集</button>
-        </div>
-        <div class="layer-controls">
-            <label class="layer-checkbox">
-                <input type="checkbox" id="floodLayer"> 洪水ハザードマップ
-            </label>
-            <label class="layer-checkbox">
-                <input type="checkbox" id="landslideLayer"> 土砂災害ハザードマップ
-            </label>
-            <label class="layer-checkbox">
-                <input type="checkbox" id="earthquakeLayer"> 地震ハザードマップ
-            </label>
-        </div>
-        <div class="share-controls">
-            <button onclick="shareLocation()" class="control-button share-button">現在の表示位置を共有</button>
-        </div>
-    </div>
+    <div id="app-container">
+        <div id="main-map"></div>
 
-    <div id="map"></div>
+        <div class="sidebar">
+            <div class="tab-header">
+                <button class="tab-button active" data-tab="hazard">ハザード</button>
+                <button class="tab-button" data-tab="medical">健康情報</button>
+                <button class="tab-button" data-tab="messages">伝言板</button>
+            </div>
 
-    <div id="messageForm" class="message-form">
-        <input type="text" id="pinTitle" class="form-input" placeholder="タイトル" maxlength="50">
-        <textarea id="pinMessage" class="form-textarea" placeholder="メッセージを入力してください"></textarea>
-        <input type="text" id="authorName" class="form-input" placeholder="投稿者名">
-        <div class="button-group">
-            <button class="save-button" onclick="savePin()">保存</button>
-            <button class="delete-button" onclick="deletePin()">削除</button>
-            <button class="cancel-button" onclick="cancelEdit()">キャンセル</button>
-        </div>
-    </div>
-
-    <div id="currentLocationButton" onclick="updateCurrentLocation()">現在地を更新</div>
-
-    <script>
-        let map;
-        let currentMarker = null;
-        let editMode = false;
-        let markers = new Map();
-        let hazardLayers = {};
-        let currentLocationMarker = null;
-
-        // カスタム赤色マーカーアイコン
-        const redIcon = L.icon({
-            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41],
-            className: 'custom-red-marker'
-        });
-
-        async function initializeMap() {
-            await loadLeaflet();
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const lat = parseFloat(urlParams.get('lat')) || 35.6812;
-            const lng = parseFloat(urlParams.get('lng')) || 139.7671;
-            const zoom = parseInt(urlParams.get('zoom')) || 13;
-
-            map = L.map('map').setView([lat, lng], zoom);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-
-            initializeHazardLayers();
-            setupEventListeners();
-            loadMarkers();
-            getCurrentLocation();
-        }
-
-        function initializeHazardLayers() {
-            hazardLayers = {
-                flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                }),
-                landslide: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_dosekiryukiken/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                }),
-                earthquake: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/04_jishindo250m/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                })
-            };
-
-            document.getElementById('floodLayer').addEventListener('change', (e) =>
-                toggleHazardLayer('flood', e.target.checked));
-            document.getElementById('landslideLayer').addEventListener('change', (e) =>
-                toggleHazardLayer('landslide', e.target.checked));
-            document.getElementById('earthquakeLayer').addEventListener('change', (e) =>
-                toggleHazardLayer('earthquake', e.target.checked));
-        }
-
-        function toggleHazardLayer(layerName, show) {
-            if (show) hazardLayers[layerName].addTo(map);
-            else hazardLayers[layerName].remove();
-        }
-
-        function setupEventListeners() {
-            document.getElementById('viewMode').addEventListener('click', () => setMapMode('view'));
-            document.getElementById('editMode').addEventListener('click', () => setMapMode('edit'));
-            map.on('click', (e) => editMode && createNewPin(e.latlng));
-        }
-
-        function shareLocation() {
-            const center = map.getCenter();
-            const zoom = map.getZoom();
-            const shareUrl = `${window.location.origin}${window.location.pathname}?lat=${center.lat}&lng=${center.lng}&zoom=${zoom}`;
-            
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert('共有用URLをクリップボードにコピーしました');
-            }).catch(err => {
-                console.error('URLのコピーに失敗しました:', err);
-                alert('共有用URL:\n' + shareUrl);
-            });
-        }
-
-        function setMapMode(mode) {
-            editMode = mode === 'edit';
-            document.getElementById('viewMode').classList.toggle('active', !editMode);
-            document.getElementById('editMode').classList.toggle('active', editMode);
-            document.getElementById('map').style.cursor = editMode ? 'crosshair' : 'grab';
-        }
-
-        function createNewPin(latlng) {
-            if (currentMarker) map.removeLayer(currentMarker);
-            currentMarker = L.marker(latlng, {
-                draggable: true,
-                icon: redIcon
-            }).addTo(map);
-            showMessageForm();
-        }
-
-        function showMessageForm() {
-            document.getElementById('messageForm').style.display = 'block';
-            document.getElementById('pinTitle').value = '';
-            document.getElementById('pinMessage').value = '';
-            document.getElementById('authorName').value = localStorage.getItem('lastAuthorName') || '';
-        }
-
-        function savePin() {
-            const title = document.getElementById('pinTitle').value.trim();
-            const message = document.getElementById('pinMessage').value.trim();
-            const author = document.getElementById('authorName').value.trim();
-
-            if (!title || !message || !author) {
-                alert('すべての項目を入力してください');
-                return;
-            }
-
-            localStorage.setItem('lastAuthorName', author);
-            const latlng = currentMarker.getLatLng();
-
-            const pinData = {
-                id: Date.now(),
-                title: title,
-                message: message,
-                author: author,
-                position: latlng,
-                timestamp: new Date().toLocaleString()
-            };
-
-            const marker = L.marker(latlng, { icon: redIcon }).addTo(map);
-            marker.bindPopup(createPopupContent(pinData));
-            marker.on('popupopen', () => setupDeleteHandler(pinData.id));
-            markers.set(pinData.id, { marker, data: pinData });
-
-            saveMarkers();
-            cancelEdit();
-        }
-
-        function setupDeleteHandler(id) {
-            document.getElementById('deletePinBtn').onclick = () => {
-                if (confirm('本当にこのピンを削除しますか？')) {
-                    const markerData = markers.get(id);
-                    map.removeLayer(markerData.marker);
-                    markers.delete(id);
-                    saveMarkers();
-                }
-            };
-        }
-
-        function createPopupContent(pinData) {
-            return `
-                <div class="popup-content">
-                    <div class="popup-title">${escapeHtml(pinData.title)}</div>
-                    <div class="popup-message">${escapeHtml(pinData.message)}</div>
-                    <div class="popup-meta">
-                        投稿者: ${escapeHtml(pinData.author)}<br>
-                        緯度: ${pinData.position.lat.toFixed(6)}<br>
-                        経度: ${pinData.position.lng.toFixed(6)}<br>
-                        ${pinData.timestamp}
-                    </div>
-                    <div class="delete-menu">
-                        <button id="deletePinBtn" class="delete-btn">削除</button>
-                    </div>
+            <div id="hazard" class="tab-content active">
+                <h2 style="padding: 20px;">ハザードマップ設定</h2>
+                <div style="padding: 0 20px 20px;">
+                    <label class="layer-toggle">
+                        <input type="checkbox" id="flood-layer">
+                        洪水リスク
+                    </label>
+                    <label class="layer-toggle">
+                        <input type="checkbox" id="landslide-layer">
+                        土砂災害リスク
+                    </label>
                 </div>
+            </div>
+
+            <div id="medical" class="tab-content">
+                <div style="padding: 20px;">
+                    <h2>防災カルテ</h2>
+                    <form class="medical-form">
+                        <div class="form-group">
+                            <label>健康状態</label>
+                            <textarea id="health-status" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>アレルギー情報</label>
+                            <textarea id="allergies" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>常用薬</label>
+                            <textarea id="medications" rows="3"></textarea>
+                        </div>
+                        <button type="button" class="save-button" style="margin-top: 15px; padding: 10px 20px; background: var(--secondary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            保存
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="messages" class="tab-content">
+                <div style="padding: 20px;">
+                    <h2>伝言板</h2>
+                    <div class="message-list" id="message-list"></div>
+                    <button class="add-message-button" style="margin-top: 15px; padding: 10px 20px; background: var(--safe-green); color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        新しい伝言を追加
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="emergency-alert" id="emergency-alert">
+            🚨 緊急事態！直ちに避難してください！
+        </div>
+
+        <button class="floating-button" id="menu-button">☰</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        const state = {
+            map: null,
+            layers: {
+                flood: L.layerGroup(),
+                landslide: L.layerGroup()
+            },
+            messages: JSON.parse(localStorage.getItem('messages')) || [],
+            medicalData: JSON.parse(localStorage.getItem('medicalData')) || {},
+            currentMarker: null,
+            longPressTimer: null
+        };
+
+        function initMap() {
+            state.map = L.map('main-map', {
+                center: [35.681236, 139.767125],
+                zoom: 13,
+                preferCanvas: true
+            });
+
+            L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',
+                maxZoom: 18,
+                minZoom: 5
+            }).addTo(state.map);
+
+            L.rectangle([[35.67, 139.75], [35.69, 139.77]], {
+                color: "#0066ff",
+                fillOpacity: 0.2
+            }).addTo(state.layers.flood);
+
+            L.polygon([
+                [35.68, 139.76],
+                [35.685, 139.765],
+                [35.68, 139.77]
+            ], {
+                color: "#ff6600",
+                fillOpacity: 0.2
+            }).addTo(state.layers.landslide);
+        }
+
+        function saveToStorage(key, data) {
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+                return true;
+            } catch (e) {
+                console.error('保存エラー:', e);
+                showAlert('データの保存に失敗しました', 'error');
+                return false;
+            }
+        }
+
+        function setupMessages() {
+            const renderMessages = () => {
+                const container = document.getElementById('message-list');
+                container.innerHTML = state.messages.map((msg, index) => `
+                    <div class="message-item" data-index="${index}">
+                        <p>${msg.user ? `<strong>${msg.user}:</strong> ` : ''}${msg.text}</p>
+                        <small>
+                            ${new Date(msg.timestamp).toLocaleString()} 
+                            (${msg.coords.lat.toFixed(4)}, ${msg.coords.lng.toFixed(4)})
+                        </small>
+                    </div>
+                `).join('');
+            };
+
+            const addMarkerWithUsername = (msg) => {
+                const marker = L.marker(msg.coords)
+                    .addTo(state.map)
+                    .bindPopup(`<b>${msg.user || '匿名'}</b><br>${msg.text}`);
+                
+                if (msg.user) {
+                    const usernameTag = L.divIcon({
+                        className: 'username-tag',
+                        html: msg.user,
+                        iconSize: [null, 24]
+                    });
+                    L.marker(msg.coords, { icon: usernameTag }).addTo(state.map);
+                }
+
+                marker.on('mousedown', (e) => handleLongPressStart(e, marker));
+                marker.on('mouseup', handleLongPressEnd);
+                marker.on('mouseout', handleLongPressEnd);
+
+                return marker;
+            };
+
+            state.messages.forEach(msg => {
+                msg.marker = addMarkerWithUsername(msg);
+            });
+
+            document.querySelector('.add-message-button').addEventListener('click', async () => {
+                const user = prompt('ユーザー名を入力（任意）:') || '匿名';
+                const message = prompt('伝言を入力（300文字以内）:');
+                
+                if (message && message.length <= 300) {
+                    state.map.once('click', e => {
+                        const newMsg = {
+                            user,
+                            text: message,
+                            coords: e.latlng,
+                            timestamp: Date.now()
+                        };
+                        
+                        newMsg.marker = addMarkerWithUsername(newMsg);
+                        state.messages.push(newMsg);
+                        saveToStorage('messages', state.messages);
+                        renderMessages();
+                    });
+                    alert('地図上の位置を選択してください');
+                }
+            });
+
+            renderMessages();
+        }
+
+        function handleLongPressStart(e, marker) {
+            state.currentMarker = marker;
+            state.longPressTimer = setTimeout(() => {
+                showContextMenu(e.originalEvent.clientX, e.originalEvent.clientY);
+            }, 1000);
+        }
+
+        function handleLongPressEnd() {
+            clearTimeout(state.longPressTimer);
+        }
+
+        function showContextMenu(x, y) {
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y}px`;
+            
+            menu.innerHTML = `
+                <div class="context-menu-item" onclick="handleEditMessage()">編集</div>
+                <div class="context-menu-item" onclick="handleDeleteMessage()">削除</div>
             `;
+            
+            document.body.appendChild(menu);
+            menu.style.display = 'block';
+            
+            const closeMenu = () => {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            };
+            
+            document.addEventListener('click', closeMenu);
         }
 
-        function deletePin() {
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-                currentMarker = null;
+        window.handleEditMessage = () => {
+            if (!state.currentMarker) return;
+            
+            const msgIndex = state.messages.findIndex(m => m.marker === state.currentMarker);
+            const newText = prompt('メッセージを編集:', state.messages[msgIndex].text);
+            
+            if (newText && newText.length <= 300) {
+                state.messages[msgIndex].text = newText;
+                state.currentMarker.setPopupContent(`<b>${state.messages[msgIndex].user || '匿名'}</b><br>${newText}`);
+                saveToStorage('messages', state.messages);
+                document.querySelector(`.message-item[data-index="${msgIndex}"] p`).innerHTML = 
+                    `${state.messages[msgIndex].user ? `<strong>${state.messages[msgIndex].user}:</strong> ` : ''}${newText}`;
             }
-            cancelEdit();
-        }
+        };
 
-        function cancelEdit() {
-            document.getElementById('messageForm').style.display = 'none';
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-                currentMarker = null;
+        window.handleDeleteMessage = () => {
+            if (!state.currentMarker) return;
+            
+            if (confirm('本当に削除しますか？')) {
+                const msgIndex = state.messages.findIndex(m => m.marker === state.currentMarker);
+                state.map.removeLayer(state.messages[msgIndex].marker);
+                state.messages.splice(msgIndex, 1);
+                saveToStorage('messages', state.messages);
+                document.querySelector(`.message-item[data-index="${msgIndex}"]`).remove();
             }
+        };
+
+        function setupMedicalData() {
+            const loadData = () => {
+                document.getElementById('health-status').value = state.medicalData.healthStatus || '';
+                document.getElementById('allergies').value = state.medicalData.allergies || '';
+                document.getElementById('medications').value = state.medicalData.medications || '';
+            };
+
+            document.querySelector('.save-button').addEventListener('click', () => {
+                state.medicalData = {
+                    healthStatus: document.getElementById('health-status').value,
+                    allergies: document.getElementById('allergies').value,
+                    medications: document.getElementById('medications').value,
+                    lastUpdated: Date.now()
+                };
+                if (saveToStorage('medicalData', state.medicalData)) {
+                    showAlert('健康情報を保存しました', 'success');
+                }
+            });
+
+            loadData();
         }
 
-        function saveMarkers() {
-            const markersData = Array.from(markers.values()).map(({ data }) => data);
-            localStorage.setItem('mapMarkers', JSON.stringify(markersData));
-        }
-
-        function loadMarkers() {
-            const savedMarkers = localStorage.getItem('mapMarkers');
-            if (savedMarkers) {
-                JSON.parse(savedMarkers).forEach(markerData => {
-                    const marker = L.marker(markerData.position, { icon: redIcon }).addTo(map);
-                    marker.bindPopup(createPopupContent(markerData));
-                    marker.on('popupopen', () => setupDeleteHandler(markerData.id));
-                    markers.set(markerData.id, { marker, data: markerData });
+        function setupUI() {
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    const tabId = button.dataset.tab;
+                    button.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
                 });
-            }
-        }
+            });
 
-        function getCurrentLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        const latlng = {lat: position.coords.latitude, lng: position.coords.longitude};
-                        map.setView(latlng, 15);
-                        updateCurrentLocationMarker(latlng);
-                    },
-                    error => {
-                        console.error('位置情報の取得に失敗しました:', error);
-                        alert('現在地の取得に失敗しました。');
-                    },
-                    { enableHighAccuracy: true, timeout: 5000 }
-                );
-            } else {
-                alert('このブラウザでは位置情報が利用できません。');
-            }
-        }
+            document.querySelectorAll('.layer-toggle input').forEach(toggle => {
+                toggle.addEventListener('change', e => {
+                    const layer = e.target.id.replace('-layer', '');
+                    if (e.target.checked) {
+                        state.layers[layer].addTo(state.map);
+                    } else {
+                        state.map.removeLayer(state.layers[layer]);
+                    }
+                });
+            });
 
-        function updateCurrentLocation() {
-            getCurrentLocation();
-        }
-
-        function updateCurrentLocationMarker(latlng) {
-            if (currentLocationMarker) {
-                currentLocationMarker.setLatLng(latlng);
-            } else {
-                currentLocationMarker = L.marker(latlng).addTo(map);
-            }
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function loadLeaflet() {
-            return new Promise((resolve, reject) => {
-                const css = document.createElement('link');
-                css.rel = 'stylesheet';
-                css.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
-                document.head.appendChild(css);
-
-                const script = document.createElement('script');
-                script.src = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
+            document.getElementById('menu-button').addEventListener('click', () => {
+                document.querySelector('.sidebar').classList.toggle('active');
             });
         }
 
-        initializeMap();
+        function showAlert(message, type = 'info') {
+            const alertBox = document.createElement('div');
+            alertBox.className = `alert-${type}`;
+            alertBox.textContent = message;
+            document.body.appendChild(alertBox);
+            setTimeout(() => alertBox.remove(), 3000);
+        }
+
+        function initApp() {
+            initMap();
+            setupMedicalData();
+            setupMessages();
+            setupUI();
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
