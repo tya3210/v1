@@ -3,374 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>共有ハザードマップ</title>
+    <title>総合防災支援プラットフォーム</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
-        body {
-            margin: 0;
-            font-family: sans-serif;
-        }
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-        .control-panel {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            max-width: 300px;
-        }
-        .layer-controls {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-        .mode-controls {
-            margin-bottom: 10px;
-        }
-        .control-button {
-            padding: 8px 16px;
-            margin: 0 5px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            background-color: #f8f9fa;
-        }
-        .control-button.active {
-            background-color: #1976d2;
-            color: white;
-        }
-        .share-controls {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-        .share-button {
-            background-color: #28a745;
-            color: white;
-            width: 100%;
-            margin-top: 5px;
-        }
-        .message-form {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            width: 300px;
-            display: none;
-        }
-        .form-input {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .form-textarea {
-            width: 100%;
-            height: 100px;
-            margin-bottom: 10px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            resize: vertical;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-        }
-        .button-group button {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .save-button { background-color: #1976d2; color: white; }
-        .delete-button { background-color: #dc3545; color: white; }
-        .cancel-button { background-color: #6c757d; color: white; }
-        .popup-content {
-            max-width: 250px;
-        }
-        .popup-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .popup-message {
-            margin-bottom: 5px;
-        }
-        .popup-meta {
-            font-size: 0.8em;
-            color: #666;
-        }
-        .layer-checkbox {
-            margin: 5px 0;
-            display: block;
-        }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #container { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+        #sidebar { background: #f0f0f0; padding: 20px; overflow-y: auto; }
+        #map { height: 100%; }
+        .form-section { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .leaflet-marker-icon { background: transparent; border: none; }
+        .marker-info { max-width: 200px; }
+        .log-entry { border-bottom: 1px solid #ccc; padding: 5px 0; }
     </style>
 </head>
 <body>
-    <div class="control-panel">
-        <div class="mode-controls">
-            <button id="viewMode" class="control-button active">閲覧</button>
-            <button id="editMode" class="control-button">編集</button>
+    <div id="container">
+        <div id="sidebar">
+            <div class="form-section">
+                <h3>表示レイヤー</h3>
+                <label><input type="checkbox" id="layer-shops" checked> 営業再開店舗</label><br>
+                <label><input type="checkbox" id="layer-shelters" checked> 避難所情報</label><br>
+                <label><input type="checkbox" id="layer-messages" checked> 伝言掲示板</label>
+            </div>
+
+            <div class="form-section" id="message-form">
+                <h3>伝言を投稿</h3>
+                <input type="text" id="message-title" placeholder="タイトル"><br>
+                <textarea id="message-content" placeholder="内容"></textarea><br>
+                <button onclick="saveMessage()">投稿</button>
+            </div>
+
+            <div class="form-section" id="shelter-report">
+                <h3>避難所状況報告</h3>
+                <select id="shelter-select">
+                    <option value="shelter1">避難所A</option>
+                    <option value="shelter2">避難所B</option>
+                </select>
+                <input type="number" id="shelter-people" placeholder="人数">
+                <button onclick="reportShelter()">報告</button>
+            </div>
+
+            <div class="form-section">
+                <h3>防災アクションログ</h3>
+                <textarea id="log-content" placeholder="経験した内容"></textarea>
+                <button onclick="saveLog()">記録</button>
+                <div id="log-history"></div>
+            </div>
         </div>
-        <div class="layer-controls">
-            <label class="layer-checkbox">
-                <input type="checkbox" id="floodLayer"> 洪水ハザードマップ
-            </label>
-            <label class="layer-checkbox">
-                <input type="checkbox" id="landslideLayer"> 土砂災害ハザードマップ
-            </label>
-            <label class="layer-checkbox">
-                <input type="checkbox" id="earthquakeLayer"> 地震ハザードマップ
-            </label>
-        </div>
-        <div class="share-controls">
-            <button onclick="shareLocation()" class="control-button share-button">現在の表示位置を共有</button>
-        </div>
+
+        <div id="map"></div>
     </div>
 
-    <div id="map"></div>
-
-    <div id="messageForm" class="message-form">
-        <input type="text" id="pinTitle" class="form-input" placeholder="タイトル" maxlength="50">
-        <textarea id="pinMessage" class="form-textarea" placeholder="メッセージを入力してください"></textarea>
-        <input type="text" id="authorName" class="form-input" placeholder="投稿者名">
-        <div class="button-group">
-            <button class="save-button" onclick="savePin()">保存</button>
-            <button class="delete-button" onclick="deletePin()">削除</button>
-            <button class="cancel-button" onclick="cancelEdit()">キャンセル</button>
-        </div>
-    </div>
-
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
         let map;
-        let currentMarker = null;
-        let editMode = false;
-        let markers = new Map();
-        let hazardLayers = {};
+        let layerControl;
+        const layers = {
+            shops: L.layerGroup(),
+            shelters: L.layerGroup(),
+            messages: L.layerGroup()
+        };
 
-        async function initializeMap() {
-            await loadLeaflet();
-            
-            // URLからパラメータを取得
-            const urlParams = new URLSearchParams(window.location.search);
-            const lat = parseFloat(urlParams.get('lat')) || 35.6812;
-            const lng = parseFloat(urlParams.get('lng')) || 139.7671;
-            const zoom = parseInt(urlParams.get('zoom')) || 13;
+        function initMap() {
+            map = L.map('map').setView([35.681236, 139.767125], 14);
 
-            map = L.map('map').setView([lat, lng], zoom);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+            // 国土地理院の地図タイル
+            L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+                attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
             }).addTo(map);
 
-            initializeHazardLayers();
-            setupEventListeners();
-            loadMarkers();
-            getCurrentLocation();
+            // レイヤー制御
+            layerControl = L.control.layers(null, {
+                '営業再開店舗': layers.shops,
+                '避難所情報': layers.shelters,
+                '伝言掲示板': layers.messages
+            }).addTo(map);
+
+            // 初期データ
+            loadSampleData();
+            setupLayerControls();
+            loadFromLocalStorage();
         }
 
-        function initializeHazardLayers() {
-            // ハザードマップレイヤーの初期化
-            hazardLayers = {
-                flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                }),
-                landslide: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_dosekiryukiken/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                }),
-                earthquake: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/04_jishindo250m/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                })
-            };
-
-            // レイヤーの切り替えイベントを設定
-            document.getElementById('floodLayer').addEventListener('change', (e) => 
-                toggleHazardLayer('flood', e.target.checked));
-            document.getElementById('landslideLayer').addEventListener('change', (e) => 
-                toggleHazardLayer('landslide', e.target.checked));
-            document.getElementById('earthquakeLayer').addEventListener('change', (e) => 
-                toggleHazardLayer('earthquake', e.target.checked));
-        }
-
-        function toggleHazardLayer(layerName, show) {
-            if (show) {
-                hazardLayers[layerName].addTo(map);
-            } else {
-                hazardLayers[layerName].remove();
-            }
-        }
-
-        function setupEventListeners() {
-            document.getElementById('viewMode').addEventListener('click', () => setMapMode('view'));
-            document.getElementById('editMode').addEventListener('click', () => setMapMode('edit'));
-
-            map.on('click', (e) => {
-                if (editMode) {
-                    createNewPin(e.latlng);
-                }
+        function setupLayerControls() {
+            document.getElementById('layer-shops').addEventListener('change', e => {
+                e.target.checked ? map.addLayer(layers.shops) : map.removeLayer(layers.shops);
+            });
+            document.getElementById('layer-shelters').addEventListener('change', e => {
+                e.target.checked ? map.addLayer(layers.shelters) : map.removeLayer(layers.shelters);
+            });
+            document.getElementById('layer-messages').addEventListener('change', e => {
+                e.target.checked ? map.addLayer(layers.messages) : map.removeLayer(layers.messages);
             });
         }
 
-        function shareLocation() {
-            const center = map.getCenter();
-            const zoom = map.getZoom();
-            const shareUrl = `${window.location.origin}${window.location.pathname}?lat=${center.lat}&lng=${center.lng}&zoom=${zoom}`;
-            
-            // クリップボードにURLをコピー
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert('共有用URLをクリップボードにコピーしました');
-            }).catch(err => {
-                console.error('URLのコピーに失敗しました:', err);
-                alert('共有用URL:\n' + shareUrl);
-            });
-        }
+        function addMarker(layer, latlng, title, content) {
+            const marker = L.marker(latlng, {
+                title: title
+            }).addTo(layers[layer]);
 
-        function setMapMode(mode) {
-            editMode = mode === 'edit';
-            document.getElementById('viewMode').classList.toggle('active', !editMode);
-            document.getElementById('editMode').classList.toggle('active', editMode);
-            document.getElementById('map').style.cursor = editMode ? 'crosshair' : 'grab';
-        }
-
-        function createNewPin(latlng) {
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-            }
-            currentMarker = L.marker(latlng, { draggable: true }).addTo(map);
-            showMessageForm();
-        }
-
-        function showMessageForm() {
-            document.getElementById('messageForm').style.display = 'block';
-            document.getElementById('pinTitle').value = '';
-            document.getElementById('pinMessage').value = '';
-            document.getElementById('authorName').value = localStorage.getItem('lastAuthorName') || '';
-        }
-
-        function savePin() {
-            const title = document.getElementById('pinTitle').value.trim();
-            const message = document.getElementById('pinMessage').value.trim();
-            const author = document.getElementById('authorName').value.trim();
-
-            if (!title || !message || !author) {
-                alert('すべての項目を入力してください');
-                return;
-            }
-
-            localStorage.setItem('lastAuthorName', author);
-
-            const latlng = currentMarker.getLatLng();
-            const pinData = {
-                id: Date.now(),
-                title: title,
-                message: message,
-                author: author,
-                position: latlng,
-                timestamp: new Date().toLocaleString()
-            };
-
-            const marker = L.marker(latlng).addTo(map);
-            marker.bindPopup(createPopupContent(pinData));
-            markers.set(pinData.id, { marker, data: pinData });
-
-            saveMarkers();
-            cancelEdit();
-        }
-
-        function deletePin() {
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-                currentMarker = null;
-            }
-            cancelEdit();
-        }
-
-        function cancelEdit() {
-            document.getElementById('messageForm').style.display = 'none';
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-                currentMarker = null;
-            }
-        }
-
-        function createPopupContent(pinData) {
-            return `
-                <div class="popup-content">
-                    <div class="popup-title">${escapeHtml(pinData.title)}</div>
-                    <div class="popup-message">${escapeHtml(pinData.message)}</div>
-                    <div class="popup-meta">
-                        投稿者: ${escapeHtml(pinData.author)}<br>
-                        緯度: ${pinData.position.lat.toFixed(6)}<br>
-                        経度: ${pinData.position.lng.toFixed(6)}<br>
-                        ${pinData.timestamp}
-                    </div>
+            marker.bindPopup(`
+                <div class="marker-info">
+                    <h4>${title}</h4>
+                    <p>${content}</p>
                 </div>
-            `;
+            `);
+            return marker;
         }
 
-        function saveMarkers() {
-            const markersData = Array.from(markers.values()).map(({ data }) => data);
-            localStorage.setItem('mapMarkers', JSON.stringify(markersData));
-        }
-
-        function loadMarkers() {
-            const savedMarkers = localStorage.getItem('mapMarkers');
-            if (savedMarkers) {
-                JSON.parse(savedMarkers).forEach(markerData => {
-                    const marker = L.marker(markerData.position).addTo(map);
-                    marker.bindPopup(createPopupContent(markerData));
-                    markers.set(markerData.id, { marker, data: markerData });
-                });
-            }
-        }
-
-        function getCurrentLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        if (!urlParams.has('lat') && !urlParams.has('lng')) {
-                            map.setView([position.coords.latitude, position.coords.longitude], 15);
-                        }
-                    },
-                    error => console.error('位置情報の取得に失敗しました:', error)
-                );
-            }
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function loadLeaflet() {
-            return new Promise((resolve, reject) => {
-                const css = document.createElement('link');
-                css.rel = 'stylesheet';
-                css.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
-                document.head.appendChild(css);
-
-                const script = document.createElement('script');
-                script.src = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
+        function saveMessage() {
+            navigator.geolocation.getCurrentPosition(position => {
+                const title = document.getElementById('message-title').value;
+                const content = document.getElementById('message-content').value;
+                const latlng = [position.coords.latitude, position.coords.longitude];
+                
+                addMarker('messages', latlng, title, content);
+                saveToLocalStorage('messages', { latlng, title, content });
             });
         }
 
-        initializeMap();
+        function reportShelter() {
+            const shelter = document.getElementById('shelter-select').value;
+            const people = document.getElementById('shelter-people').value;
+            console.log(`避難所: ${shelter}, 人数: ${people}`);
+        }
+
+        function saveLog() {
+            const content = document.getElementById('log-content').value;
+            const logEntry = {
+                date: new Date().toLocaleString(),
+                content: content,
+                advice: generateAdvice(content)
+            };
+            
+            saveToLocalStorage('logs', logEntry);
+            displayLogs();
+        }
+
+        function generateAdvice(text) {
+            const keywords = {
+                '水': '飲料水の備蓄を3日分以上確保しましょう',
+                '懐中電灯': '予備電池も忘れずに準備してください',
+                '薬': '常用薬は常に1週間分を用意しておきましょう'
+            };
+            
+            return Object.keys(keywords).find(k => text.includes(k)) 
+                ? keywords[Object.keys(keywords).find(k => text.includes(k))]
+                : '定期的な防災訓練の実施をお勧めします';
+        }
+
+        function saveToLocalStorage(key, data) {
+            const items = JSON.parse(localStorage.getItem(key) || '[]');
+            items.push(data);
+            localStorage.setItem(key, JSON.stringify(items));
+        }
+
+        function loadFromLocalStorage() {
+            const messages = JSON.parse(localStorage.getItem('messages') || '[]');
+            messages.forEach(msg => {
+                addMarker('messages', msg.latlng, msg.title, msg.content);
+            });
+            displayLogs();
+        }
+
+        function displayLogs() {
+            const logs = JSON.parse(localStorage.getItem('logs') || '[]');
+            const historyDiv = document.getElementById('log-history');
+            historyDiv.innerHTML = logs.reverse().map(log => `
+                <div class="log-entry">
+                    <strong>${log.date}</strong><br>
+                    ${log.content}<br>
+                    <em>アドバイス: ${log.advice}</em>
+                </div>
+            `).join('');
+        }
+
+        // Initialize map after DOM loaded
+        window.onload = initMap;
     </script>
 </body>
 </html>
