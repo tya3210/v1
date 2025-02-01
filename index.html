@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>総合防災支援プラットフォーム</title>
+    <title>防災マップシステム</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
@@ -11,43 +11,31 @@
         #sidebar { background: #f0f0f0; padding: 20px; overflow-y: auto; }
         #map { height: 100%; }
         .form-section { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; }
-        .leaflet-marker-icon { background: transparent; border: none; }
-        .marker-info { max-width: 200px; }
-        .log-entry { border-bottom: 1px solid #ccc; padding: 5px 0; }
+        .marker-form { max-width: 250px; }
+        .message-item { border-bottom: 1px solid #ddd; padding: 5px 0; }
+        .custom-icon { background: #fff; border: 2px solid #333; border-radius: 50%; padding: 5px; }
     </style>
 </head>
 <body>
     <div id="container">
         <div id="sidebar">
             <div class="form-section">
-                <h3>表示レイヤー</h3>
-                <label><input type="checkbox" id="layer-shops" checked> 営業再開店舗</label><br>
-                <label><input type="checkbox" id="layer-shelters" checked> 避難所情報</label><br>
-                <label><input type="checkbox" id="layer-messages" checked> 伝言掲示板</label>
+                <h3>操作ガイド</h3>
+                <p>左クリック：マーカー追加</p>
+                <p>右クリック：マーカー削除</p>
+                <p>マーカーをクリックで伝言投稿</p>
             </div>
-
-            <div class="form-section" id="message-form">
-                <h3>伝言を投稿</h3>
-                <input type="text" id="message-title" placeholder="タイトル"><br>
-                <textarea id="message-content" placeholder="内容"></textarea><br>
-                <button onclick="saveMessage()">投稿</button>
-            </div>
-
-            <div class="form-section" id="shelter-report">
-                <h3>避難所状況報告</h3>
-                <select id="shelter-select">
-                    <option value="shelter1">避難所A</option>
-                    <option value="shelter2">避難所B</option>
-                </select>
-                <input type="number" id="shelter-people" placeholder="人数">
-                <button onclick="reportShelter()">報告</button>
+            
+            <div class="form-section">
+                <h3>マーカータイプ</h3>
+                <label><input type="radio" name="marker-type" value="message" checked> 伝言</label>
+                <label><input type="radio" name="marker-type" value="shelter"> 避難所</label>
+                <label><input type="radio" name="marker-type" value="shop"> 店舗</label>
             </div>
 
             <div class="form-section">
-                <h3>防災アクションログ</h3>
-                <textarea id="log-content" placeholder="経験した内容"></textarea>
-                <button onclick="saveLog()">記録</button>
-                <div id="log-history"></div>
+                <h3>伝言履歴</h3>
+                <div id="message-history"></div>
             </div>
         </div>
 
@@ -57,11 +45,11 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
         let map;
-        let layerControl;
-        const layers = {
-            shops: L.layerGroup(),
-            shelters: L.layerGroup(),
-            messages: L.layerGroup()
+        let currentMarkers = [];
+        const markerTypes = {
+            message: { color: '#ff0000', icon: '📢' },
+            shelter: { color: '#00ff00', icon: '⛑' },
+            shop: { color: '#0000ff', icon: '🏪' }
         };
 
         function initMap() {
@@ -72,113 +60,129 @@
                 attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
             }).addTo(map);
 
-            // レイヤー制御
-            layerControl = L.control.layers(null, {
-                '営業再開店舗': layers.shops,
-                '避難所情報': layers.shelters,
-                '伝言掲示板': layers.messages
+            // マーカー操作イベント
+            map.on('click', addNewMarker);
+            loadMarkersFromStorage();
+        }
+
+        function addNewMarker(e) {
+            const type = document.querySelector('input[name="marker-type"]:checked').value;
+            const marker = L.marker(e.latlng, {
+                icon: L.divIcon({
+                    className: 'custom-icon',
+                    html: markerTypes[type].icon,
+                    iconSize: [30, 30]
+                }),
+                draggable: true
             }).addTo(map);
 
-            // 初期データ
-            loadSampleData();
-            setupLayerControls();
-            loadFromLocalStorage();
-        }
-
-        function setupLayerControls() {
-            document.getElementById('layer-shops').addEventListener('change', e => {
-                e.target.checked ? map.addLayer(layers.shops) : map.removeLayer(layers.shops);
-            });
-            document.getElementById('layer-shelters').addEventListener('change', e => {
-                e.target.checked ? map.addLayer(layers.shelters) : map.removeLayer(layers.shelters);
-            });
-            document.getElementById('layer-messages').addEventListener('change', e => {
-                e.target.checked ? map.addLayer(layers.messages) : map.removeLayer(layers.messages);
-            });
-        }
-
-        function addMarker(layer, latlng, title, content) {
-            const marker = L.marker(latlng, {
-                title: title
-            }).addTo(layers[layer]);
-
-            marker.bindPopup(`
-                <div class="marker-info">
-                    <h4>${title}</h4>
-                    <p>${content}</p>
-                </div>
-            `);
-            return marker;
-        }
-
-        function saveMessage() {
-            navigator.geolocation.getCurrentPosition(position => {
-                const title = document.getElementById('message-title').value;
-                const content = document.getElementById('message-content').value;
-                const latlng = [position.coords.latitude, position.coords.longitude];
-                
-                addMarker('messages', latlng, title, content);
-                saveToLocalStorage('messages', { latlng, title, content });
-            });
-        }
-
-        function reportShelter() {
-            const shelter = document.getElementById('shelter-select').value;
-            const people = document.getElementById('shelter-people').value;
-            console.log(`避難所: ${shelter}, 人数: ${people}`);
-        }
-
-        function saveLog() {
-            const content = document.getElementById('log-content').value;
-            const logEntry = {
-                date: new Date().toLocaleString(),
-                content: content,
-                advice: generateAdvice(content)
-            };
+            marker.on('click', () => showMessageForm(marker));
+            marker.on('contextmenu', () => removeMarker(marker));
             
-            saveToLocalStorage('logs', logEntry);
-            displayLogs();
+            marker.type = type;
+            marker.messages = [];
+            currentMarkers.push(marker);
+            saveMarkersToStorage();
         }
 
-        function generateAdvice(text) {
-            const keywords = {
-                '水': '飲料水の備蓄を3日分以上確保しましょう',
-                '懐中電灯': '予備電池も忘れずに準備してください',
-                '薬': '常用薬は常に1週間分を用意しておきましょう'
-            };
+        function removeMarker(marker) {
+            map.removeLayer(marker);
+            currentMarkers = currentMarkers.filter(m => m !== marker);
+            saveMarkersToStorage();
+        }
+
+        function showMessageForm(marker) {
+            const form = document.createElement('div');
+            form.className = 'marker-form';
+            form.innerHTML = `
+                <h4>${marker.type === 'message' ? '伝言' : '情報'}を追加</h4>
+                <textarea id="message-text" rows="3"></textarea>
+                <button onclick="saveMessageToMarker(${currentMarkers.indexOf(marker)})">保存</button>
+                ${marker.messages.map((msg, i) => `
+                    <div class="message-item">
+                        <p>${msg.text}</p>
+                        <small>${new Date(msg.timestamp).toLocaleString()}</small>
+                        <button onclick="deleteMessage(${currentMarkers.indexOf(marker)}, ${i})">削除</button>
+                    </div>
+                `).join('')}
+            `;
             
-            return Object.keys(keywords).find(k => text.includes(k)) 
-                ? keywords[Object.keys(keywords).find(k => text.includes(k))]
-                : '定期的な防災訓練の実施をお勧めします';
+            marker.bindPopup(form).openPopup();
         }
 
-        function saveToLocalStorage(key, data) {
-            const items = JSON.parse(localStorage.getItem(key) || '[]');
-            items.push(data);
-            localStorage.setItem(key, JSON.stringify(items));
+        function saveMessageToMarker(index) {
+            const marker = currentMarkers[index];
+            const text = document.getElementById('message-text').value;
+            
+            if (text) {
+                marker.messages.push({
+                    text: text,
+                    timestamp: Date.now()
+                });
+                saveMarkersToStorage();
+                updateMessageHistory();
+                marker.closePopup();
+            }
         }
 
-        function loadFromLocalStorage() {
-            const messages = JSON.parse(localStorage.getItem('messages') || '[]');
-            messages.forEach(msg => {
-                addMarker('messages', msg.latlng, msg.title, msg.content);
+        function deleteMessage(markerIndex, messageIndex) {
+            currentMarkers[markerIndex].messages.splice(messageIndex, 1);
+            saveMarkersToStorage();
+            updateMessageHistory();
+        }
+
+        function saveMarkersToStorage() {
+            const data = currentMarkers.map(marker => ({
+                latlng: marker.getLatLng(),
+                type: marker.type,
+                messages: marker.messages
+            }));
+            localStorage.setItem('savedMarkers', JSON.stringify(data));
+        }
+
+        function loadMarkersFromStorage() {
+            const savedData = JSON.parse(localStorage.getItem('savedMarkers') || '[]');
+            savedData.forEach(data => {
+                const marker = L.marker(data.latlng, {
+                    icon: L.divIcon({
+                        className: 'custom-icon',
+                        html: markerTypes[data.type].icon,
+                        iconSize: [30, 30]
+                    }),
+                    draggable: true
+                }).addTo(map);
+
+                marker.type = data.type;
+                marker.messages = data.messages;
+                marker.on('click', () => showMessageForm(marker));
+                marker.on('contextmenu', () => removeMarker(marker));
+                currentMarkers.push(marker);
             });
-            displayLogs();
+            updateMessageHistory();
         }
 
-        function displayLogs() {
-            const logs = JSON.parse(localStorage.getItem('logs') || '[]');
-            const historyDiv = document.getElementById('log-history');
-            historyDiv.innerHTML = logs.reverse().map(log => `
-                <div class="log-entry">
-                    <strong>${log.date}</strong><br>
-                    ${log.content}<br>
-                    <em>アドバイス: ${log.advice}</em>
-                </div>
-            `).join('');
+        function updateMessageHistory() {
+            const historyDiv = document.getElementById('message-history');
+            const allMessages = currentMarkers
+                .filter(m => m.messages.length > 0)
+                .flatMap(m => m.messages.map(msg => ({
+                    ...msg,
+                    position: m.getLatLng(),
+                    type: m.type
+                })));
+
+            historyDiv.innerHTML = allMessages
+                .sort((a,b) => b.timestamp - a.timestamp)
+                .map(msg => `
+                    <div class="message-item">
+                        <strong>${msg.type === 'message' ? '伝言' : msg.type}</strong>
+                        <p>${msg.text}</p>
+                        <small>${new Date(msg.timestamp).toLocaleString()}</small>
+                        <small>緯度: ${msg.position.lat.toFixed(4)}, 経度: ${msg.position.lng.toFixed(4)}</small>
+                    </div>
+                `).join('');
         }
 
-        // Initialize map after DOM loaded
         window.onload = initMap;
     </script>
 </body>
