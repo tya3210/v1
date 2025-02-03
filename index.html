@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - 伝言掲示板機能付き</title>
+    <title>防災情報マップ - シングルピンモード</title>
     <style>
         html, body, #map {
             height: 100%;
@@ -29,11 +29,6 @@
             border-bottom: 1px solid #ccc;
             padding: 5px 0;
         }
-        .delete-pin {
-            color: red;
-            cursor: pointer;
-            font-size: 12px;
-        }
     </style>
     <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -57,7 +52,7 @@
             attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
         }).addTo(map);
 
-        // レイヤーの追加（例として浸水想定区域）
+        // ハザードマップのレイヤー追加（浸水想定区域）
         var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/inundation/{z}/{x}/{y}.png', {
             opacity: 0.5
         });
@@ -73,19 +68,25 @@
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // ピンを保存するためのレイヤーグループ
-        var pinLayer = L.layerGroup().addTo(map);
+        // 既存のピンを保持する変数
+        var currentPin = null;
 
-        // マップをクリックしたときにピンを設置
+        // マップをクリックしたときの処理
         map.on('click', function(e) {
-            var newPin = L.marker(e.latlng, {draggable: true}).addTo(pinLayer);
+            // 既存のピンがある場合は削除
+            if (currentPin) {
+                map.removeLayer(currentPin);
+            }
+
+            // 新しいピンを設置
+            currentPin = L.marker(e.latlng, {draggable: true}).addTo(map);
 
             // ピンにポップアップを設定
-            newPin.bindPopup(createPopupContent(newPin)).openPopup();
+            currentPin.bindPopup(createPopupContent(currentPin)).openPopup();
 
             // ピンがドラッグされたときにポップアップを更新
-            newPin.on('dragend', function() {
-                newPin.getPopup().setContent(createPopupContent(newPin));
+            currentPin.on('dragend', function() {
+                currentPin.getPopup().setContent(createPopupContent(currentPin));
             });
         });
 
@@ -142,17 +143,6 @@
 
             container.appendChild(form);
             container.appendChild(messageList);
-
-            // ピン削除ボタン
-            var deleteLink = document.createElement('a');
-            deleteLink.href = '#';
-            deleteLink.className = 'delete-pin';
-            deleteLink.textContent = 'このピンを削除';
-            deleteLink.onclick = function(e) {
-                e.preventDefault();
-                map.removeLayer(marker);
-            };
-            container.appendChild(deleteLink);
 
             return container;
         }
