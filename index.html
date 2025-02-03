@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - 改良版</title>
+    <title>防災情報マップ - 気象庁API実装版</title>
     <style>
         html, body, #map {
             height: 100%;
@@ -109,7 +109,8 @@
             nameLabel: "お名前: ",
             disasterInfoTitle: "防災情報",
             disasterInfoLoading: "最新の防災情報を取得中です...",
-            disasterInfoError: "防災情報を取得できませんでした。"
+            disasterInfoError: "防災情報を取得できませんでした。",
+            noDisasterInfo: "現在、特別な防災情報はありません。"
         };
 
         document.title = texts.mapTitle;
@@ -406,23 +407,28 @@
             var disasterInfoDiv = document.getElementById('disasterInfo');
             disasterInfoDiv.innerHTML = texts.disasterInfoLoading;
 
-            // 気象庁防災情報XMLのURL
-            var feedURL = 'https://www.data.jma.go.jp/developer/xml/feed/regular.xml';
+            // CORSの問題を回避するために、プロキシを使用
+            var proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            var feedURL = 'http://www.data.jma.go.jp/developer/xml/feed/eqvol.xml';
 
-            fetch(feedURL)
+            fetch(proxyUrl + feedURL)
                 .then(response => response.text())
                 .then(str => {
                     var parser = new DOMParser();
                     var xmlDoc = parser.parseFromString(str, 'application/xml');
                     var entries = xmlDoc.getElementsByTagName('entry');
+                    if (entries.length === 0) {
+                        disasterInfoDiv.innerHTML = texts.noDisasterInfo;
+                        return;
+                    }
                     var infoHtml = '';
                     for (var i = 0; i < entries.length; i++) {
                         var title = entries[i].getElementsByTagName('title')[0].textContent;
                         var updated = entries[i].getElementsByTagName('updated')[0].textContent;
-                        var link = entries[i].getElementsByTagName('link')[0].getAttribute('href');
+                        var content = entries[i].getElementsByTagName('content')[0].textContent;
                         infoHtml += '<p><strong>' + sanitize(title) + '</strong><br>';
                         infoHtml += '更新: ' + sanitize(updated) + '<br>';
-                        infoHtml += '<a href="' + sanitize(link) + '" target="_blank">詳細</a></p>';
+                        infoHtml += sanitize(content) + '</p>';
                     }
                     disasterInfoDiv.innerHTML = infoHtml;
                 })
