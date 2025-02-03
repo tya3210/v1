@@ -127,19 +127,19 @@
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // ピンのアイコン設定
-        var emptyPinIcon = L.icon({
-            iconUrl: 'https://maps.gsi.go.jp/image/marker_purple.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34]
+        // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
+        var emptyPinIcon = new L.Icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
         });
 
-        var messagePinIcon = L.icon({
-            iconUrl: 'https://maps.gsi.go.jp/image/marker_red.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34]
+        var messagePinIcon = new L.Icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
         });
 
         // ピンを管理する配列
