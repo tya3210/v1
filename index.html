@@ -52,11 +52,37 @@
         .username-container input {
             width: 150px;
         }
+        /* フローティングウィンドウのスタイル */
+        .disaster-info-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1001; /* username-containerより前面に表示 */
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            width: 250px;
+            font-size: 14px;
+        }
+        .disaster-info-container h3 {
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+        .disaster-info-content {
+            /* 必要に応じてコンテンツ領域のスタイルを設定 */
+        }
     </style>
     <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
+    <!-- 防災情報表示フローティングウィンドウ -->
+    <div class="disaster-info-container">
+        <h3>防災情報</h3>
+        <div id="disaster-info-content">
+            <!-- 防災情報がここに表示されます -->
+        </div>
+    </div>
     <!-- ユーザー名の設定 -->
     <div class="username-container">
         お名前: <input type="text" id="usernameInput" placeholder="ユーザー名を入力" />
@@ -127,19 +153,19 @@
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
-        var emptyPinIcon = new L.Icon({
-            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
+        // ピンのアイコン設定 (アイコンを修正)
+        var emptyPinIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon.png', // デフォルトのアイコンに変更
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
         });
 
-        var messagePinIcon = new L.Icon({
-            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
+        var messagePinIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon-2x.png', // デフォルトのアイコン (少し色違い)
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
         });
 
         // ピンを管理する配列
@@ -304,12 +330,12 @@
                 fillOpacity: 1
             }).addTo(map).bindPopup(texts.currentLocation).openPopup();
 
-            // 精度を示す円
-            currentLocationCircle = L.circle(e.latlng, radius, {
-                color: '#136AEC',
-                fillColor: '#136AEC',
-                fillOpacity: 0.15
-            }).addTo(map);
+            // 精度を示す円 (精度円を削除)
+            // currentLocationCircle = L.circle(e.latlng, radius, {
+            //     color: '#136AEC',
+            //     fillColor: '#136AEC',
+            //     fillOpacity: 0.15
+            // }).addTo(map);
         }
 
         var currentLocationMarker = null;
@@ -324,10 +350,10 @@
 
         map.on('locationerror', onLocationError);
 
-        // 現在地ボタンを追加
+        // 現在地ボタンを追加 (精度円を非表示にする drawCircle: false を追加)
         L.control.locate({
             position: 'topleft',
-            drawCircle: false,
+            drawCircle: false, // 精度円を非表示にする設定
             showCompass: true,
             locateOptions: {
                 maxZoom: 16,
@@ -375,6 +401,64 @@
                 alert(texts.alertNoUsername);
             }, 500);
         }
+
+        // **防災情報表示のJavaScript**
+        // モックの防災情報データ (実際には気象庁APIなどから取得する必要があります)
+        var mockDisasterData = {
+            earthquakes: [
+                { location: "千葉県東方沖", magnitude: 5.2, time: "10分前" },
+                { location: "宮城県沖", magnitude: 4.8, time: "30分前" }
+            ],
+            tsunamis: [
+                { region: "津波注意報：***", status: "発表中" }
+            ],
+            otherAlerts: [
+                { type: "大雨注意報", areas: ["東京都", "神奈川県"], status: "発表中" }
+            ]
+        };
+
+        // 防災情報表示を更新する関数
+        function updateDisasterInfo() {
+            var disasterInfoContent = document.getElementById('disaster-info-content');
+            var html = "";
+
+            if (mockDisasterData.earthquakes.length > 0) {
+                html += "<h4>地震情報</h4><ul>";
+                mockDisasterData.earthquakes.forEach(function(eq) {
+                    html += `<li>${eq.time} - ${eq.location} - M${eq.magnitude}</li>`;
+                });
+                html += "</ul>";
+            }
+
+            if (mockDisasterData.tsunamis.length > 0) {
+                html += "<h4>津波情報</h4><ul>";
+                mockDisasterData.tsunamis.forEach(function(tsunami) {
+                    html += `<li>${tsunami.region} - ${tsunami.status}</li>`;
+                });
+                html += "</ul>";
+            }
+
+            if (mockDisasterData.otherAlerts.length > 0) {
+                html += "<h4>防災警報・注意報</h4><ul>";
+                mockDisasterData.otherAlerts.forEach(function(alert) {
+                    html += `<li>${alert.type} (${alert.areas.join(', ')}) - ${alert.status}</li>`;
+                });
+                html += "</ul>";
+            }
+
+            if (html === "") {
+                html = "現在、防災情報はありません。";
+            }
+
+            disasterInfoContent.innerHTML = html;
+        }
+
+        // 初回表示
+        updateDisasterInfo();
+
+        // 定期的に更新する場合 (今回はモックデータなので必須ではないですが、実際のAPIから取得する際は利用します)
+        // setInterval(updateDisasterInfo, 60 * 1000); // 1分ごとに更新 (例)
+
     </script>
 </body>
 </html>
