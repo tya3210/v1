@@ -2,12 +2,16 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - ハザードマップ対応版</title>
+    <title>防災情報マップ - 完成版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         html, body, #map {
             height: 100%;
             margin: 0;
             padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
         }
         .leaflet-popup-content {
             font-size: 14px;
@@ -68,10 +72,31 @@
         }
         .info-window h3 {
             margin-top: 0;
+            font-size: 16px;
+        }
+        /* レスポンシブ対応 */
+        @media only screen and (max-width: 600px) {
+            .username-container {
+                width: 100%;
+                box-sizing: border-box;
+                left: 0;
+                right: 0;
+                top: 0;
+            }
+            .username-container input {
+                width: calc(100% - 20px);
+            }
+            .info-window {
+                width: calc(100% - 20px);
+                left: 10px;
+                bottom: 70px;
+            }
         }
     </style>
     <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- レイヤーコントロール用のCSSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-layers-expanded/css/leaflet-control-layers-expanded.min.css" />
 </head>
 <body>
     <!-- ユーザー名の設定 -->
@@ -91,8 +116,9 @@
     <!-- サニタイズ用のDOMPurifyを読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
     <!-- Leaflet.LocateのCSSとJSを読み込み -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
+    <!-- レイヤーコントロール拡張用のJSを読み込み -->
+    <script src="https://unpkg.com/leaflet-control-layers-expanded/js/leaflet-control-layers-expanded.min.js"></script>
 
     <script>
         // 言語設定（多言語対応のためにテキストをまとめる）
@@ -147,29 +173,44 @@
         });
 
         // 土砂災害危険箇所
-        var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lssh/{z}/{x}/{y}.png', {
+        var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ls-risk2/{z}/{x}/{y}.png', {
             opacity: 0.5,
             attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
         // 津波浸水想定区域
-        var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lts/{z}/{x}/{y}.png', {
+        var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/tsunami2/{z}/{x}/{y}.png', {
             opacity: 0.5,
             attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
-        // レイヤーコントロールを追加
+        // 火山災害危険区域
+        var volcanoLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/volcano-hazard/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/dualkidou/volcano.html'>国土地理院ハザードマップ</a>"
+        });
+
+        // 高潮浸水想定区域
+        var stormSurgeLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/stormsurge2/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
+        // レイヤーコントロールをカスタマイズ
         var baseMaps = {
-            "標準地図": stdMap
+            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 標準地図": stdMap
         };
 
         var overlayMaps = {
-            "浸水想定区域": floodLayer,
-            "土砂災害危険箇所": landslideLayer,
-            "津波浸水想定区域": tsunamiLayer
+            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 浸水想定区域": floodLayer,
+            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 土砂災害危険箇所": landslideLayer,
+            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 津波浸水想定区域": tsunamiLayer,
+            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 火山災害危険区域": volcanoLayer,
+            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 高潮浸水想定区域": stormSurgeLayer
         };
 
-        L.control.layers(baseMaps, overlayMaps).addTo(map);
+        // レイヤーコントロールを展開可能に設定
+        L.control.layers(baseMaps, overlayMaps, {collapsed: false}).addTo(map);
 
         // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
         var emptyPinIcon = new L.Icon({
@@ -420,9 +461,38 @@
             }, 500);
         }
 
-        // 防災情報を取得する関数（省略）
+        // 防災情報を取得する関数
+        function fetchDisasterInfo() {
+            var disasterInfoDiv = document.getElementById('disasterInfo');
+            disasterInfoDiv.innerHTML = texts.disasterInfoLoading;
 
-        // 必要に応じて防災情報の取得コードを追加してください
+            // 気象庁の防災情報JSONP APIを使用
+            var script = document.createElement('script');
+            script.src = 'https://www.jma.go.jp/bosai/forecast/data/overview_forecast/130000.json?callback=displayDisasterInfo';
+            script.onerror = function() {
+                disasterInfoDiv.innerHTML = texts.disasterInfoError;
+            };
+            document.body.appendChild(script);
+        }
+
+        // JSONPコールバック関数
+        function displayDisasterInfo(data) {
+            var disasterInfoDiv = document.getElementById('disasterInfo');
+            if (data) {
+                var infoHtml = '<p><strong>' + sanitize(data.title) + '</strong><br>';
+                infoHtml += '発表日時: ' + sanitize(data.reportDatetime) + '</p>';
+                infoHtml += '<p>' + sanitize(data.text.replace(/\n/g, '<br>')) + '</p>';
+                disasterInfoDiv.innerHTML = infoHtml;
+            } else {
+                disasterInfoDiv.innerHTML = texts.noDisasterInfo;
+            }
+        }
+
+        // ページ読み込み時に防災情報を取得
+        fetchDisasterInfo();
+
+        // 一定時間ごとに防災情報を更新（5分ごと）
+        setInterval(fetchDisasterInfo, 5 * 60 * 1000);
 
     </script>
 </body>
