@@ -2,447 +2,476 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>共有ハザードマップ</title>
+    <title>防災情報マップ - 改良版</title>
     <style>
-        body {
+        html, body, #map {
+            height: 100%;
             margin: 0;
-            font-family: sans-serif;
+            padding: 0;
         }
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-        .control-panel {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            max-width: 300px;
-        }
-        .layer-controls {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-        .mode-controls {
-            margin-bottom: 10px;
-        }
-        .control-button {
-            padding: 8px 16px;
-            margin: 0 5px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            background-color: #f8f9fa;
-        }
-        .control-button.active {
-            background-color: #1976d2;
-            color: white;
-        }
-        .share-controls {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-        .share-button {
-            background-color: #28a745;
-            color: white;
-            width: 100%;
-            margin-top: 5px;
+        .leaflet-popup-content {
+            font-size: 14px;
         }
         .message-form {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            width: 300px;
-            display: none;
+            margin: 0;
         }
-        .form-input {
+        .message-form textarea {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            height: 60px;
+            resize: none;
         }
-        .form-textarea {
-            width: 100%;
-            height: 100px;
-            margin-bottom: 10px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            resize: vertical;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-        }
-        .button-group button {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .save-button { background-color: #1976d2; color: white; }
-        .delete-button { background-color: #dc3545; color: white; }
-        .cancel-button { background-color: #6c757d; color: white; }
-        .popup-content {
-            max-width: 250px;
-        }
-        .popup-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .popup-message {
-            margin-bottom: 5px;
-        }
-        .popup-meta {
-            font-size: 0.8em;
-            color: #666;
-        }
-        .layer-checkbox {
-            margin: 5px 0;
-            display: block;
-        }
-        #currentLocationButton {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            padding: 10px;
-            background-color: white;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        #currentLocationButton:hover {
-            background-color: #f0f0f0;
-        }
-        .custom-red-marker {
-            filter: hue-rotate(300deg) saturate(200%);
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(0.95); }
-        }
-        .delete-menu {
-            text-align: center;
+        .message-list {
+            max-height: 100px;
+            overflow-y: auto;
             margin-top: 10px;
         }
-        .delete-btn {
-            background-color: #dc3545;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
+        .message-item {
+            border-bottom: 1px solid #ccc;
+            padding: 5px 0;
+        }
+        .message-author {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .delete-pin {
+            color: red;
             cursor: pointer;
-            border: none;
+            font-size: 12px;
+            display: block;
+            margin-top: 10px;
+        }
+        .username-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .username-container input {
+            width: 150px;
+        }
+        /* リッチ装飾フローティングウィンドウのスタイル */
+        .disaster-info-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1001; /* username-containerより前面に表示 */
+            background-color: rgba(240, 240, 240, 0.9); /* 薄い背景色 */
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2); /* 影を追加 */
+            width: 280px; /* 少し幅を広げる */
+            font-size: 14px;
+        }
+        .disaster-info-container h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-weight: bold; /* タイトルを太字に */
+            font-size: 1.1em; /* 少し大きく */
+        }
+        .disaster-info-content {
+            /* 必要に応じてコンテンツ領域のスタイルを設定 */
+        }
+        .disaster-info-separator {
+            border-bottom: 1px dashed #ccc; /* 波線 */
+            margin: 10px 0;
+        }
+        .disaster-info-none {
+            font-style: italic; /* 情報がない場合のメッセージをitalicに */
+            color: #777; /* 少しグレーに */
         }
     </style>
+    <!-- LeafletのCSSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-    <div class="control-panel">
-        <div class="mode-controls">
-            <button id="viewMode" class="control-button active">閲覧</button>
-            <button id="editMode" class="control-button">編集</button>
-        </div>
-        <div class="layer-controls">
-            <label class="layer-checkbox">
-                <input type="checkbox" id="floodLayer"> 洪水ハザードマップ
-            </label>
-            <label class="layer-checkbox">
-                <input type="checkbox" id="landslideLayer"> 土砂災害ハザードマップ
-            </label>
-            <label class="layer-checkbox">
-                <input type="checkbox" id="earthquakeLayer"> 地震ハザードマップ
-            </label>
-        </div>
-        <div class="share-controls">
-            <button onclick="shareLocation()" class="control-button share-button">現在の表示位置を共有</button>
+    <!-- 防災情報表示フローティングウィンドウ -->
+    <div class="disaster-info-container">
+        <h3>防災情報</h3>
+        <div id="disaster-info-content">
+            <!-- 防災情報がここに表示されます -->
         </div>
     </div>
-
+    <!-- ユーザー名の設定 -->
+    <div class="username-container">
+        お名前: <input type="text" id="usernameInput" placeholder="ユーザー名を入力" />
+    </div>
     <div id="map"></div>
 
-    <div id="messageForm" class="message-form">
-        <input type="text" id="pinTitle" class="form-input" placeholder="タイトル" maxlength="50">
-        <textarea id="pinMessage" class="form-textarea" placeholder="メッセージを入力してください"></textarea>
-        <input type="text" id="authorName" class="form-input" placeholder="投稿者名">
-        <div class="button-group">
-            <button class="save-button" onclick="savePin()">保存</button>
-            <button class="delete-button" onclick="deletePin()">削除</button>
-            <button class="cancel-button" onclick="cancelEdit()">キャンセル</button>
-        </div>
-    </div>
-
-    <div id="currentLocationButton" onclick="updateCurrentLocation()">現在地を更新</div>
-
+    <!-- LeafletのJSを読み込み -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- 地理院タイル読み込み -->
+    <script src="https://maps.gsi.go.jp/js/leaflet-gsi.js"></script>
+    <!-- Leaflet.LocateのCSSとJSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+    <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
+    <!-- サニタイズ用のDOMPurifyを読み込み -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
     <script>
-        let map;
-        let currentMarker = null;
-        let editMode = false;
-        let markers = new Map();
-        let hazardLayers = {};
-        let currentLocationMarker = null;
+        // 言語設定（多言語対応のためにテキストをまとめる）
+        const texts = {
+            mapTitle: "防災情報マップ",
+            placeholderMessage: "伝言を入力してください",
+            placeholderUsername: "ユーザー名を入力",
+            postButton: "投稿",
+            deletePin: "このピンを削除",
+            currentLocation: "現在地",
+            displayCurrentLocation: "現在地を表示",
+            alertLocationError: "位置情報を取得できませんでした。",
+            alertNoUsername: "ユーザー名を入力してください。",
+            nameLabel: "お名前: "
+        };
 
-        // カスタム赤色マーカーアイコン
-        const redIcon = L.icon({
-            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41],
-            className: 'custom-red-marker'
+        document.title = texts.mapTitle;
+
+        // ユーザー名の管理
+        var username = localStorage.getItem('username') || '';
+        var usernameInput = document.getElementById('usernameInput');
+        usernameInput.value = username;
+        usernameInput.placeholder = texts.placeholderUsername;
+
+        usernameInput.addEventListener('change', function() {
+            username = usernameInput.value.trim();
+            localStorage.setItem('username', username);
         });
 
-        async function initializeMap() {
-            await loadLeaflet();
+        // 地図の初期化 (ズームコントロールを削除)
+        var map = L.map('map', {
+            center: [35.681236, 139.767125], // 東京駅の位置
+            zoom: 13,
+            zoomControl: false // ズームコントロールを非表示にする
+        });
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const lat = parseFloat(urlParams.get('lat')) || 35.6812;
-            const lng = parseFloat(urlParams.get('lng')) || 139.7671;
-            const zoom = parseInt(urlParams.get('zoom')) || 13;
+        // 地理院地図の標準タイルを追加
+        var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+            attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
+        }).addTo(map);
 
-            map = L.map('map').setView([lat, lng], zoom);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
+        // ハザードマップのレイヤー追加（浸水想定区域）
+        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/inundation/{z}/{x}/{y}.png', {
+            opacity: 0.5
+        });
 
-            initializeHazardLayers();
-            setupEventListeners();
-            loadMarkers();
-            getCurrentLocation();
-        }
+        // レイヤーコントロールを追加
+        var baseMaps = {
+            "標準地図": stdMap
+        };
 
-        function initializeHazardLayers() {
-            hazardLayers = {
-                flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                }),
-                landslide: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_dosekiryukiken/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                }),
-                earthquake: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/04_jishindo250m/{z}/{x}/{y}.png', {
-                    opacity: 0.7
-                })
-            };
+        var overlayMaps = {
+            "浸水想定区域": floodLayer
+        };
 
-            document.getElementById('floodLayer').addEventListener('change', (e) =>
-                toggleHazardLayer('flood', e.target.checked));
-            document.getElementById('landslideLayer').addEventListener('change', (e) =>
-                toggleHazardLayer('landslide', e.target.checked));
-            document.getElementById('earthquakeLayer').addEventListener('change', (e) =>
-                toggleHazardLayer('earthquake', e.target.checked));
-        }
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        function toggleHazardLayer(layerName, show) {
-            if (show) hazardLayers[layerName].addTo(map);
-            else hazardLayers[layerName].remove();
-        }
+        // ピンのアイコン設定 (アイコンを修正)
+        var emptyPinIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon.png', // デフォルトのアイコンに変更
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        });
 
-        function setupEventListeners() {
-            document.getElementById('viewMode').addEventListener('click', () => setMapMode('view'));
-            document.getElementById('editMode').addEventListener('click', () => setMapMode('edit'));
-            map.on('click', (e) => editMode && createNewPin(e.latlng));
-        }
+        var messagePinIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon-2x.png', // デフォルトのアイコン (少し色違い)
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        });
 
-        function shareLocation() {
-            const center = map.getCenter();
-            const zoom = map.getZoom();
-            const shareUrl = `${window.location.origin}${window.location.pathname}?lat=${center.lat}&lng=${center.lng}&zoom=${zoom}`;
-            
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert('共有用URLをクリップボードにコピーしました');
-            }).catch(err => {
-                console.error('URLのコピーに失敗しました:', err);
-                alert('共有用URL:\n' + shareUrl);
-            });
-        }
+        // ピンを管理する配列
+        var pins = [];
 
-        function setMapMode(mode) {
-            editMode = mode === 'edit';
-            document.getElementById('viewMode').classList.toggle('active', !editMode);
-            document.getElementById('editMode').classList.toggle('active', editMode);
-            document.getElementById('map').style.cursor = editMode ? 'crosshair' : 'grab';
-        }
+        // 一時的な空のピンを保持する変数
+        var currentEmptyPin = null;
 
-        function createNewPin(latlng) {
-            if (currentMarker) map.removeLayer(currentMarker);
-            currentMarker = L.marker(latlng, {
-                draggable: true,
-                icon: redIcon
-            }).addTo(map);
-            showMessageForm();
-        }
+        // localStorageからピンのデータを読み込み
+        loadPinsFromStorage();
 
-        function showMessageForm() {
-            document.getElementById('messageForm').style.display = 'block';
-            document.getElementById('pinTitle').value = '';
-            document.getElementById('pinMessage').value = '';
-            document.getElementById('authorName').value = localStorage.getItem('lastAuthorName') || '';
-        }
-
-        function savePin() {
-            const title = document.getElementById('pinTitle').value.trim();
-            const message = document.getElementById('pinMessage').value.trim();
-            const author = document.getElementById('authorName').value.trim();
-
-            if (!title || !message || !author) {
-                alert('すべての項目を入力してください');
+        // マップをクリックしたときの処理
+        map.on('click', function(e) {
+            // ユーザー名が未入力の場合はアラートを表示
+            if (!username.trim()) {
+                alert(texts.alertNoUsername);
                 return;
             }
 
-            localStorage.setItem('lastAuthorName', author);
-            const latlng = currentMarker.getLatLng();
+            // 既存の空のピンがあり、メッセージがない場合は削除
+            if (currentEmptyPin && currentEmptyPin.data.messages.length === 0) {
+                map.removeLayer(currentEmptyPin);
+            }
 
-            const pinData = {
-                id: Date.now(),
-                title: title,
-                message: message,
-                author: author,
-                position: latlng,
-                timestamp: new Date().toLocaleString()
+            // 新しい空のピンを設置
+            currentEmptyPin = L.marker(e.latlng, { icon: emptyPinIcon }).addTo(map);
+
+            // ピンにメッセージを保存するオブジェクトを追加
+            currentEmptyPin.data = {
+                messages: []
             };
 
-            const marker = L.marker(latlng, { icon: redIcon }).addTo(map);
-            marker.bindPopup(createPopupContent(pinData));
-            marker.on('popupopen', () => setupDeleteHandler(pinData.id));
-            markers.set(pinData.id, { marker, data: pinData });
+            // ピンにポップアップを設定
+            currentEmptyPin.bindPopup(createPopupContent(currentEmptyPin)).openPopup();
+        });
 
-            saveMarkers();
-            cancelEdit();
-        }
+        // ポップアップの内容を生成
+        function createPopupContent(marker) {
+            var container = document.createElement('div');
 
-        function setupDeleteHandler(id) {
-            document.getElementById('deletePinBtn').onclick = () => {
-                if (confirm('本当にこのピンを削除しますか？')) {
-                    const markerData = markers.get(id);
-                    map.removeLayer(markerData.marker);
-                    markers.delete(id);
-                    saveMarkers();
+            // メッセージフォーム
+            var form = document.createElement('form');
+            form.className = 'message-form';
+
+            var textarea = document.createElement('textarea');
+            textarea.placeholder = texts.placeholderMessage;
+            form.appendChild(textarea);
+
+            var submitButton = document.createElement('input');
+            submitButton.type = 'submit';
+            submitButton.value = texts.postButton;
+            form.appendChild(submitButton);
+
+            // メッセージリスト
+            var messageList = document.createElement('div');
+            messageList.className = 'message-list';
+
+            // 既存のメッセージを表示
+            marker.data.messages.forEach(function(msgObj) {
+                var messageItem = document.createElement('div');
+                messageItem.className = 'message-item';
+
+                var authorSpan = document.createElement('span');
+                authorSpan.className = 'message-author';
+                authorSpan.textContent = sanitize(msgObj.author + ": ");
+
+                var messageSpan = document.createElement('span');
+                messageSpan.textContent = sanitize(msgObj.text);
+
+                messageItem.appendChild(authorSpan);
+                messageItem.appendChild(messageSpan);
+                messageList.appendChild(messageItem);
+            });
+
+            // フォーム送信時の処理
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                var msg = textarea.value.trim();
+                if (msg) {
+                    var msgObj = {
+                        author: username,
+                        text: msg
+                    };
+                    marker.data.messages.push(msgObj);
+
+                    var messageItem = document.createElement('div');
+                    messageItem.className = 'message-item';
+
+                    var authorSpan = document.createElement('span');
+                    authorSpan.className = 'message-author';
+                    authorSpan.textContent = sanitize(username + ": ");
+
+                    var messageSpan = document.createElement('span');
+                    messageSpan.textContent = sanitize(msg);
+
+                    messageItem.appendChild(authorSpan);
+                    messageItem.appendChild(messageSpan);
+                    messageList.appendChild(messageItem);
+
+                    textarea.value = '';
+                    textarea.focus();
+
+                    // 空のピンから正式なピンに移動
+                    if (currentEmptyPin === marker) {
+                        // アイコンを変更
+                        marker.setIcon(messagePinIcon);
+                        pins.push(marker);
+                        currentEmptyPin = null;
+                    }
+
+                    // ピンのデータを保存
+                    savePinsToStorage();
                 }
             };
+
+            container.appendChild(form);
+            container.appendChild(messageList);
+
+            // ピン削除ボタン
+            var deleteLink = document.createElement('a');
+            deleteLink.href = '#';
+            deleteLink.className = 'delete-pin';
+            deleteLink.textContent = texts.deletePin;
+            deleteLink.onclick = function(e) {
+                e.preventDefault();
+                map.removeLayer(marker);
+                pins = pins.filter(function(pin) {
+                    return pin !== marker;
+                });
+                // ピンのデータを保存
+                savePinsToStorage();
+            };
+            container.appendChild(deleteLink);
+
+            return container;
         }
 
-        function createPopupContent(pinData) {
-            return `
-                <div class="popup-content">
-                    <div class="popup-title">${escapeHtml(pinData.title)}</div>
-                    <div class="popup-message">${escapeHtml(pinData.message)}</div>
-                    <div class="popup-meta">
-                        投稿者: ${escapeHtml(pinData.author)}<br>
-                        緯度: ${pinData.position.lat.toFixed(6)}<br>
-                        経度: ${pinData.position.lng.toFixed(6)}<br>
-                        ${pinData.timestamp}
-                    </div>
-                    <div class="delete-menu">
-                        <button id="deletePinBtn" class="delete-btn">削除</button>
-                    </div>
-                </div>
-            `;
+        // サニタイズ関数（DOMPurifyを使用）
+        function sanitize(str) {
+            return DOMPurify.sanitize(str);
         }
 
-        function deletePin() {
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-                currentMarker = null;
+        // 現在地を円形マーカーで表示
+        function onLocationFound(e) {
+            var radius = e.accuracy / 2;
+
+            // 既存の現在地マーカーと精度円を削除
+            if (currentLocationMarker) {
+                map.removeLayer(currentLocationMarker);
             }
-            cancelEdit();
-        }
-
-        function cancelEdit() {
-            document.getElementById('messageForm').style.display = 'none';
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-                currentMarker = null;
+            if (currentLocationCircle) {
+                map.removeLayer(currentLocationCircle);
             }
+
+            // 円形マーカーを作成
+            currentLocationMarker = L.circleMarker(e.latlng, {
+                radius: 10,
+                fillColor: '#3388ff',
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 1
+            }).addTo(map).bindPopup(texts.currentLocation).openPopup();
+
+            // 精度を示す円 (精度円を削除)
+            // currentLocationCircle = L.circle(e.latlng, radius, {
+            //     color: '#136AEC',
+            //     fillColor: '#136AEC',
+            //     fillOpacity: 0.15
+            // }).addTo(map);
         }
 
-        function saveMarkers() {
-            const markersData = Array.from(markers.values()).map(({ data }) => data);
-            localStorage.setItem('mapMarkers', JSON.stringify(markersData));
+        var currentLocationMarker = null;
+        var currentLocationCircle = null;
+
+        map.on('locationfound', onLocationFound);
+
+        // 位置情報取得失敗時の処理
+        function onLocationError(e) {
+            alert(texts.alertLocationError);
         }
 
-        function loadMarkers() {
-            const savedMarkers = localStorage.getItem('mapMarkers');
-            if (savedMarkers) {
-                JSON.parse(savedMarkers).forEach(markerData => {
-                    const marker = L.marker(markerData.position, { icon: redIcon }).addTo(map);
-                    marker.bindPopup(createPopupContent(markerData));
-                    marker.on('popupopen', () => setupDeleteHandler(markerData.id));
-                    markers.set(markerData.id, { marker, data: markerData });
+        map.on('locationerror', onLocationError);
+
+        // 現在地ボタンを追加 (精度円を非表示、右下に移動)
+        L.control.locate({
+            position: 'bottomright', // 右下に移動
+            drawCircle: false, // 精度円を非表示にする設定
+            showCompass: true,
+            locateOptions: {
+                maxZoom: 16,
+                watch: true,
+                setView: true
+            },
+            strings: {
+                title: texts.displayCurrentLocation
+            },
+            onLocationError: onLocationError,
+            onLocationFound: onLocationFound
+        }).addTo(map);
+
+        // ピンのデータをlocalStorageに保存
+        function savePinsToStorage() {
+            var pinsData = pins.map(function(pin) {
+                return {
+                    latlng: pin.getLatLng(),
+                    messages: pin.data.messages
+                };
+            });
+            localStorage.setItem('pins', JSON.stringify(pinsData));
+        }
+
+        // localStorageからピンのデータを読み込み
+        function loadPinsFromStorage() {
+            var savedPins = localStorage.getItem('pins');
+            if (savedPins) {
+                var pinsData = JSON.parse(savedPins);
+                pinsData.forEach(function(pinData) {
+                    var icon = pinData.messages.length > 0 ? messagePinIcon : emptyPinIcon;
+                    var pin = L.marker(pinData.latlng, { icon: icon }).addTo(map);
+                    pin.data = {
+                        messages: pinData.messages
+                    };
+                    pin.bindPopup(createPopupContent(pin));
+                    pins.push(pin);
                 });
             }
         }
 
-        function getCurrentLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        const latlng = {lat: position.coords.latitude, lng: position.coords.longitude};
-                        map.setView(latlng, 15);
-                        updateCurrentLocationMarker(latlng);
-                    },
-                    error => {
-                        console.error('位置情報の取得に失敗しました:', error);
-                        alert('現在地の取得に失敗しました。');
-                    },
-                    { enableHighAccuracy: true, timeout: 5000 }
-                );
-            } else {
-                alert('このブラウザでは位置情報が利用できません。');
+        // ページ読み込み時にユーザー名が未設定の場合の処理
+        if (!username.trim()) {
+            setTimeout(function() {
+                alert(texts.alertNoUsername);
+            }, 500);
+        }
+
+        // **防災情報表示のJavaScript**
+        // モックの防災情報データ (実際には気象庁APIなどから取得する必要があります)
+        var mockDisasterData = {
+            earthquakes: [
+                { location: "千葉県東方沖", magnitude: 5.2, time: "10分前" },
+                { location: "宮城県沖", magnitude: 4.8, time: "30分前" }
+            ],
+            tsunamis: [
+                { region: "津波注意報：***", status: "発表中" }
+            ],
+            otherAlerts: [
+                { type: "大雨注意報", areas: ["東京都", "神奈川県"], status: "発表中" }
+            ]
+        };
+
+        // 防災情報表示を更新する関数
+        function updateDisasterInfo() {
+            var disasterInfoContent = document.getElementById('disaster-info-content');
+            var html = "";
+
+            if (mockDisasterData.earthquakes.length > 0) {
+                html += "<h4><span aria-label='地震' role='img'>地震 </span>地震情報</h4><ul>"; // 地震アイコン（絵文字）
+                mockDisasterData.earthquakes.forEach(function(eq) {
+                    html += `<li>${eq.time} - ${eq.location} - M${eq.magnitude}</li>`;
+                });
+                html += "</ul><div class='disaster-info-separator'></div>"; // 区切り線を追加
             }
-        }
 
-        function updateCurrentLocation() {
-            getCurrentLocation();
-        }
-
-        function updateCurrentLocationMarker(latlng) {
-            if (currentLocationMarker) {
-                currentLocationMarker.setLatLng(latlng);
-            } else {
-                currentLocationMarker = L.marker(latlng).addTo(map);
+            if (mockDisasterData.tsunamis.length > 0) {
+                html += "<h4><span aria-label='津波' role='img'>🌊</span>津波情報</h4><ul>"; // 津波アイコン（絵文字）
+                mockDisasterData.tsunamis.forEach(function(tsunami) {
+                    html += `<li>${tsunami.region} - ${tsunami.status}</li>`;
+                });
+                html += "</ul><div class='disaster-info-separator'></div>"; // 区切り線を追加
             }
+
+            if (mockDisasterData.otherAlerts.length > 0) {
+                html += "<h4><span aria-label='警報・注意報' role='img'>⚠️</span>防災警報・注意報</h4><ul>"; // 警報・注意報アイコン（絵文字）
+                mockDisasterData.otherAlerts.forEach(function(alert) {
+                    html += `<li>${alert.type} (${alert.areas.join(', ')}) - ${alert.status}</li>`;
+                });
+                html += "</ul>";
+            }
+
+            if (html === "") {
+                html = "<p class='disaster-info-none'>現在、防災情報はありません。</p>"; // 情報がない場合のメッセージを強調
+            }
+
+            disasterInfoContent.innerHTML = html;
         }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        // 初回表示
+        updateDisasterInfo();
 
-        function loadLeaflet() {
-            return new Promise((resolve, reject) => {
-                const css = document.createElement('link');
-                css.rel = 'stylesheet';
-                css.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
-                document.head.appendChild(css);
+        // 定期的に更新する場合 (今回はモックデータなので必須ではないですが、実際のAPIから取得する際は利用します)
+        // setInterval(updateDisasterInfo, 60 * 1000); // 1分ごとに更新 (例)
 
-                const script = document.createElement('script');
-                script.src = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.js';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        }
-
-        initializeMap();
     </script>
 </body>
 </html>
