@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - 現在地を円形マーカーで表示</title>
+    <title>防災情報マップ - 複数ピン対応版</title>
     <style>
         html, body, #map {
             height: 100%;
@@ -76,32 +76,30 @@
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // 既存のピンを保持する変数
-        var currentPin = null;
+        // ピンを管理する配列
+        var pins = [];
 
         // localStorageからピンのデータを読み込み
-        loadPinFromStorage();
+        loadPinsFromStorage();
 
         // マップをクリックしたときの処理
         map.on('click', function(e) {
-            // 既存のピンがある場合は削除
-            if (currentPin) {
-                map.removeLayer(currentPin);
-            }
-
             // 新しいピンを設置
-            currentPin = L.marker(e.latlng).addTo(map);
+            var newPin = L.marker(e.latlng).addTo(map);
 
             // ピンにメッセージを保存するオブジェクトを追加
-            currentPin.data = {
+            newPin.data = {
                 messages: []
             };
 
             // ピンにポップアップを設定
-            currentPin.bindPopup(createPopupContent(currentPin)).openPopup();
+            newPin.bindPopup(createPopupContent(newPin)).openPopup();
 
-            // ピンの位置とデータを保存
-            savePinToStorage();
+            // ピンを配列に追加
+            pins.push(newPin);
+
+            // ピンのデータを保存
+            savePinsToStorage();
         });
 
         // ポップアップの内容を生成
@@ -148,8 +146,8 @@
                     textarea.value = '';
                     textarea.focus();
 
-                    // メッセージを保存
-                    savePinToStorage();
+                    // ピンのデータを保存
+                    savePinsToStorage();
                 }
             };
 
@@ -164,8 +162,11 @@
             deleteLink.onclick = function(e) {
                 e.preventDefault();
                 map.removeLayer(marker);
-                currentPin = null;
-                removePinFromStorage();
+                pins = pins.filter(function(pin) {
+                    return pin !== marker;
+                });
+                // ピンのデータを保存
+                savePinsToStorage();
             };
             container.appendChild(deleteLink);
 
@@ -232,34 +233,30 @@
         }).addTo(map);
 
         // ピンのデータをlocalStorageに保存
-        function savePinToStorage() {
-            if (currentPin) {
-                var pinData = {
-                    latlng: currentPin.getLatLng(),
-                    messages: currentPin.data.messages
+        function savePinsToStorage() {
+            var pinsData = pins.map(function(pin) {
+                return {
+                    latlng: pin.getLatLng(),
+                    messages: pin.data.messages
                 };
-                localStorage.setItem('currentPin', JSON.stringify(pinData));
-            }
+            });
+            localStorage.setItem('pins', JSON.stringify(pinsData));
         }
 
         // localStorageからピンのデータを読み込み
-        function loadPinFromStorage() {
-            var savedPin = localStorage.getItem('currentPin');
-            if (savedPin) {
-                var pinData = JSON.parse(savedPin);
-                currentPin = L.marker(pinData.latlng).addTo(map);
-
-                currentPin.data = {
-                    messages: pinData.messages
-                };
-
-                currentPin.bindPopup(createPopupContent(currentPin));
+        function loadPinsFromStorage() {
+            var savedPins = localStorage.getItem('pins');
+            if (savedPins) {
+                var pinsData = JSON.parse(savedPins);
+                pinsData.forEach(function(pinData) {
+                    var pin = L.marker(pinData.latlng).addTo(map);
+                    pin.data = {
+                        messages: pinData.messages
+                    };
+                    pin.bindPopup(createPopupContent(pin));
+                    pins.push(pin);
+                });
             }
-        }
-
-        // ピンのデータをlocalStorageから削除
-        function removePinFromStorage() {
-            localStorage.removeItem('currentPin');
         }
     </script>
 </body>
