@@ -2,188 +2,106 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>防災マップシステム</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <title>防災情報マップ</title>
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        #container { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
-        #sidebar { background: #f0f0f0; padding: 20px; overflow-y: auto; }
-        #map { height: 100%; }
-        .form-section { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; }
-        .marker-form { max-width: 250px; }
-        .message-item { border-bottom: 1px solid #ddd; padding: 5px 0; }
-        .custom-icon { background: #fff; border: 2px solid #333; border-radius: 50%; padding: 5px; }
+        html, body, #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .popup-content {
+            font-size: 14px;
+        }
     </style>
+    <!-- LeafletのCSSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-    <div id="container">
-        <div id="sidebar">
-            <div class="form-section">
-                <h3>操作ガイド</h3>
-                <p>左クリック：マーカー追加</p>
-                <p>右クリック：マーカー削除</p>
-                <p>マーカーをクリックで伝言投稿</p>
-            </div>
-            
-            <div class="form-section">
-                <h3>マーカータイプ</h3>
-                <label><input type="radio" name="marker-type" value="message" checked> 伝言</label>
-                <label><input type="radio" name="marker-type" value="shelter"> 避難所</label>
-                <label><input type="radio" name="marker-type" value="shop"> 店舗</label>
-            </div>
+    <div id="map"></div>
 
-            <div class="form-section">
-                <h3>伝言履歴</h3>
-                <div id="message-history"></div>
-            </div>
-        </div>
-
-        <div id="map"></div>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <!-- LeafletのJSを読み込み -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- 地理院タイル読み込み -->
+    <script src="https://maps.gsi.go.jp/js/leaflet-gsi.js"></script>
     <script>
-        let map;
-        let currentMarkers = [];
-        const markerTypes = {
-            message: { color: '#ff0000', icon: '📢' },
-            shelter: { color: '#00ff00', icon: '⛑' },
-            shop: { color: '#0000ff', icon: '🏪' }
+        // 地図の初期化
+        var map = L.map('map', {
+            center: [35.681236, 139.767125], // 東京駅の位置
+            zoom: 13
+        });
+
+        // 地理院地図の標準タイルを追加
+        var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+            attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
+        }).addTo(map);
+
+        // レイヤーの追加（淡色地図や写真など）
+        var paleMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png');
+        var photoMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ort/{z}/{x}/{y}.jpg');
+
+        // ハザードマップのレイヤー追加（例として浸水想定区域）
+        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/inundation/{z}/{x}/{y}.png', {
+            opacity: 0.5
+        });
+
+        // レイヤーコントロールを追加
+        var baseMaps = {
+            "標準地図": stdMap,
+            "淡色地図": paleMap,
+            "写真": photoMap
         };
 
-        function initMap() {
-            map = L.map('map').setView([35.681236, 139.767125], 14);
+        var overlayMaps = {
+            "浸水想定区域": floodLayer
+            // 他のハザードレイヤーも追加可能
+        };
 
-            // 国土地理院の地図タイル
-            L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-                attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
-            }).addTo(map);
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-            // マーカー操作イベント
-            map.on('click', addNewMarker);
-            loadMarkersFromStorage();
-        }
-
-        function addNewMarker(e) {
-            const type = document.querySelector('input[name="marker-type"]:checked').value;
-            const marker = L.marker(e.latlng, {
-                icon: L.divIcon({
-                    className: 'custom-icon',
-                    html: markerTypes[type].icon,
-                    iconSize: [30, 30]
-                }),
-                draggable: true
-            }).addTo(map);
-
-            marker.on('click', () => showMessageForm(marker));
-            marker.on('contextmenu', () => removeMarker(marker));
-            
-            marker.type = type;
-            marker.messages = [];
-            currentMarkers.push(marker);
-            saveMarkersToStorage();
-        }
-
-        function removeMarker(marker) {
-            map.removeLayer(marker);
-            currentMarkers = currentMarkers.filter(m => m !== marker);
-            saveMarkersToStorage();
-        }
-
-        function showMessageForm(marker) {
-            const form = document.createElement('div');
-            form.className = 'marker-form';
-            form.innerHTML = `
-                <h4>${marker.type === 'message' ? '伝言' : '情報'}を追加</h4>
-                <textarea id="message-text" rows="3"></textarea>
-                <button onclick="saveMessageToMarker(${currentMarkers.indexOf(marker)})">保存</button>
-                ${marker.messages.map((msg, i) => `
-                    <div class="message-item">
-                        <p>${msg.text}</p>
-                        <small>${new Date(msg.timestamp).toLocaleString()}</small>
-                        <button onclick="deleteMessage(${currentMarkers.indexOf(marker)}, ${i})">削除</button>
-                    </div>
-                `).join('')}
-            `;
-            
-            marker.bindPopup(form).openPopup();
-        }
-
-        function saveMessageToMarker(index) {
-            const marker = currentMarkers[index];
-            const text = document.getElementById('message-text').value;
-            
-            if (text) {
-                marker.messages.push({
-                    text: text,
-                    timestamp: Date.now()
-                });
-                saveMarkersToStorage();
-                updateMessageHistory();
-                marker.closePopup();
+        // 避難所のデータ（サンプル）
+        var shelters = [
+            {
+                name: "中央区総合スポーツセンター",
+                lat: 35.6825,
+                lng: 139.7740,
+                info: "収容人数: 800人<br>設備: 電源〇、Wi-Fi〇、トイレ◎<br>混雑度: 50%"
+            },
+            {
+                name: "日本橋小学校",
+                lat: 35.6861,
+                lng: 139.7785,
+                info: "収容人数: 500人<br>設備: 電源△、Wi-Fi×、トイレ〇<br>混雑度: 75%"
             }
+            // 他の避難所も追加可能
+        ];
+
+        // アイコンの設定
+        var shelterIcon = L.icon({
+            iconUrl: 'https://maps.gsi.go.jp/image/legend/避難所.png', // 適切なアイコン画像URLを指定
+            iconSize: [32, 37],
+            iconAnchor: [16, 37],
+            popupAnchor: [0, -37]
+        });
+
+        // ピンを地図上に追加
+        shelters.forEach(function(shelter) {
+            L.marker([shelter.lat, shelter.lng], {icon: shelterIcon})
+                .addTo(map)
+                .bindPopup("<div class='popup-content'><strong>" + shelter.name + "</strong><br>" + shelter.info + "</div>");
+        });
+
+        // ユーザーの位置情報を取得して表示
+        map.locate({setView: true, maxZoom: 16});
+        function onLocationFound(e) {
+            L.marker(e.latlng).addTo(map)
+                .bindPopup("現在地").openPopup();
         }
+        map.on('locationfound', onLocationFound);
 
-        function deleteMessage(markerIndex, messageIndex) {
-            currentMarkers[markerIndex].messages.splice(messageIndex, 1);
-            saveMarkersToStorage();
-            updateMessageHistory();
+        function onLocationError(e) {
+            alert("位置情報を取得できませんでした。");
         }
-
-        function saveMarkersToStorage() {
-            const data = currentMarkers.map(marker => ({
-                latlng: marker.getLatLng(),
-                type: marker.type,
-                messages: marker.messages
-            }));
-            localStorage.setItem('savedMarkers', JSON.stringify(data));
-        }
-
-        function loadMarkersFromStorage() {
-            const savedData = JSON.parse(localStorage.getItem('savedMarkers') || '[]');
-            savedData.forEach(data => {
-                const marker = L.marker(data.latlng, {
-                    icon: L.divIcon({
-                        className: 'custom-icon',
-                        html: markerTypes[data.type].icon,
-                        iconSize: [30, 30]
-                    }),
-                    draggable: true
-                }).addTo(map);
-
-                marker.type = data.type;
-                marker.messages = data.messages;
-                marker.on('click', () => showMessageForm(marker));
-                marker.on('contextmenu', () => removeMarker(marker));
-                currentMarkers.push(marker);
-            });
-            updateMessageHistory();
-        }
-
-        function updateMessageHistory() {
-            const historyDiv = document.getElementById('message-history');
-            const allMessages = currentMarkers
-                .filter(m => m.messages.length > 0)
-                .flatMap(m => m.messages.map(msg => ({
-                    ...msg,
-                    position: m.getLatLng(),
-                    type: m.type
-                })));
-
-            historyDiv.innerHTML = allMessages
-                .sort((a,b) => b.timestamp - a.timestamp)
-                .map(msg => `
-                    <div class="message-item">
-                        <strong>${msg.type === 'message' ? '伝言' : msg.type}</strong>
-                        <p>${msg.text}</p>
-                        <small>${new Date(msg.timestamp).toLocaleString()}</small>
-                        <small>緯度: ${msg.position.lat.toFixed(4)}, 経度: ${msg.position.lng.toFixed(4)}</small>
-                    </div>
-                `).join('');
-        }
-
-        window.onload = initMap;
+        map.on('locationerror', onLocationError);
     </script>
 </body>
 </html>
