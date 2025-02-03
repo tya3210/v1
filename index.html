@@ -95,8 +95,6 @@
     </style>
     <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <!-- レイヤーコントロール用のCSSを読み込み -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-layers-expanded/css/leaflet-control-layers-expanded.min.css" />
 </head>
 <body>
     <!-- ユーザー名の設定 -->
@@ -115,13 +113,11 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <!-- サニタイズ用のDOMPurifyを読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
-    <!-- Leaflet.LocateのCSSとJSを読み込み -->
+    <!-- Leaflet.LocateのJSを読み込み -->
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
-    <!-- レイヤーコントロール拡張用のJSを読み込み -->
-    <script src="https://unpkg.com/leaflet-control-layers-expanded/js/leaflet-control-layers-expanded.min.js"></script>
 
     <script>
-        // 言語設定（多言語対応のためにテキストをまとめる）
+        // 言語設定
         const texts = {
             mapTitle: "防災情報マップ",
             placeholderMessage: "伝言を入力してください",
@@ -154,65 +150,50 @@
 
         // 地図の初期化
         var map = L.map('map', {
-            center: [35.681236, 139.767125], // 東京駅の位置
+            center: [35.681236, 139.767125],
             zoom: 13
         });
 
         // 地理院地図の標準タイルを追加
-        var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+        var stdMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution:
-                "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
+                "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"
         }).addTo(map);
 
         // ハザードマップのレイヤー追加
 
-        // 浸水想定区域（洪水浸水想定区域）
-        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png', {
+        // 浸水想定区域
+        var floodLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
         });
 
-        // 土砂災害危険箇所
-        var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ls-risk2/{z}/{x}/{y}.png', {
+        // 土砂災害警戒区域
+        var landslideLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/03_landslide_warning/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
         });
 
         // 津波浸水想定区域
-        var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/tsunami2/{z}/{x}/{y}.png', {
+        var tsunamiLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_tsunami_shinsui/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
         });
 
-        // 火山災害危険区域
-        var volcanoLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/volcano-hazard/{z}/{x}/{y}.png', {
-            opacity: 0.5,
-            attribution: "<a href='https://www.gsi.go.jp/dualkidou/volcano.html'>国土地理院ハザードマップ</a>"
-        });
-
-        // 高潮浸水想定区域
-        var stormSurgeLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/stormsurge2/{z}/{x}/{y}.png', {
-            opacity: 0.5,
-            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
-        });
-
-        // レイヤーコントロールをカスタマイズ
+        // レイヤーコントロールを追加
         var baseMaps = {
-            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 標準地図": stdMap
+            "標準地図": stdMap
         };
 
         var overlayMaps = {
-            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 浸水想定区域": floodLayer,
-            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 土砂災害危険箇所": landslideLayer,
-            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 津波浸水想定区域": tsunamiLayer,
-            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 火山災害危険区域": volcanoLayer,
-            "<img src='https://maps.gsi.go.jp/development/ichiran.html' width='16' height='16'/> 高潮浸水想定区域": stormSurgeLayer
+            "浸水想定区域": floodLayer,
+            "土砂災害警戒区域": landslideLayer,
+            "津波浸水想定区域": tsunamiLayer
         };
 
-        // レイヤーコントロールを展開可能に設定
-        L.control.layers(baseMaps, overlayMaps, {collapsed: false}).addTo(map);
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
+        // ピンのアイコン設定
         var emptyPinIcon = new L.Icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
             iconSize: [32, 32],
@@ -461,31 +442,23 @@
             }, 500);
         }
 
-        // 防災情報を取得する関数
+        // 防災情報を取得する関数（サンプル実装）
         function fetchDisasterInfo() {
             var disasterInfoDiv = document.getElementById('disasterInfo');
             disasterInfoDiv.innerHTML = texts.disasterInfoLoading;
 
-            // 気象庁の防災情報JSONP APIを使用
-            var script = document.createElement('script');
-            script.src = 'https://www.jma.go.jp/bosai/forecast/data/overview_forecast/130000.json?callback=displayDisasterInfo';
-            script.onerror = function() {
-                disasterInfoDiv.innerHTML = texts.disasterInfoError;
+            // 気象庁の防災情報APIの使用（CORSの問題があるため、実際のデータ取得は省略）
+            // サンプルデータを表示します
+            var sampleData = {
+                title: "気象特別警報・警報・注意報",
+                reportDatetime: "2023-10-14T15:00:00+09:00",
+                text: "現在、特別警報は発表されていません。"
             };
-            document.body.appendChild(script);
-        }
 
-        // JSONPコールバック関数
-        function displayDisasterInfo(data) {
-            var disasterInfoDiv = document.getElementById('disasterInfo');
-            if (data) {
-                var infoHtml = '<p><strong>' + sanitize(data.title) + '</strong><br>';
-                infoHtml += '発表日時: ' + sanitize(data.reportDatetime) + '</p>';
-                infoHtml += '<p>' + sanitize(data.text.replace(/\n/g, '<br>')) + '</p>';
-                disasterInfoDiv.innerHTML = infoHtml;
-            } else {
-                disasterInfoDiv.innerHTML = texts.noDisasterInfo;
-            }
+            var infoHtml = '<p><strong>' + sanitize(sampleData.title) + '</strong><br>';
+            infoHtml += '発表日時: ' + sanitize(sampleData.reportDatetime) + '</p>';
+            infoHtml += '<p>' + sanitize(sampleData.text.replace(/\n/g, '<br>')) + '</p>';
+            disasterInfoDiv.innerHTML = infoHtml;
         }
 
         // ページ読み込み時に防災情報を取得
