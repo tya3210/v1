@@ -85,15 +85,15 @@
         <div id="disasterInfo">最新の防災情報を取得中です...</div>
     </div>
 
+    <!-- 必要なスクリプトの読み込み -->
     <!-- LeafletのJSを読み込み -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- 地理院タイル読み込み -->
-    <script src="https://maps.gsi.go.jp/js/leaflet-gsi.js"></script>
+    <!-- サニタイズ用のDOMPurifyを読み込み -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
     <!-- Leaflet.LocateのCSSとJSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
-    <!-- サニタイズ用のDOMPurifyを読み込み -->
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+
     <script>
         // 言語設定（多言語対応のためにテキストをまとめる）
         const texts = {
@@ -134,25 +134,26 @@
 
         // 地理院地図の標準タイルを追加
         var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-            attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
+            attribution:
+                "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
         }).addTo(map);
 
         // ハザードマップのレイヤー追加
 
-        // 浸水想定区域
-        var floodLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_{z}/{x}/{y}.png', {
+        // 浸水想定区域（洪水浸水想定区域）
+        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png', {
             opacity: 0.5,
             attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
-        // 土砂災害警戒区域
-        var sedimentLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/03_sediment_KEIKAIZOUSI_{z}/{x}/{y}.png', {
+        // 土砂災害危険箇所
+        var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lssh/{z}/{x}/{y}.png', {
             opacity: 0.5,
             attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
         // 津波浸水想定区域
-        var tsunamiLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_tsunami_shinsuisoutei_{z}/{x}/{y}.png', {
+        var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lts/{z}/{x}/{y}.png', {
             opacity: 0.5,
             attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
@@ -164,7 +165,7 @@
 
         var overlayMaps = {
             "浸水想定区域": floodLayer,
-            "土砂災害警戒区域": sedimentLayer,
+            "土砂災害危険箇所": landslideLayer,
             "津波浸水想定区域": tsunamiLayer
         };
 
@@ -419,10 +420,9 @@
             }, 500);
         }
 
-        // 防災情報を取得する関数（前回のコードのまま）
-        // ...
+        // 防災情報を取得する関数（省略）
 
-        // ここでは防災情報の取得部分は省略しますが、必要に応じて追加してください
+        // 必要に応じて防災情報の取得コードを追加してください
 
     </script>
 </body>
