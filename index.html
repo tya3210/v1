@@ -2,15 +2,37 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ</title>
+    <title>防災情報マップ - 伝言掲示板機能付き</title>
     <style>
         html, body, #map {
             height: 100%;
             margin: 0;
             padding: 0;
         }
-        .popup-content {
+        .leaflet-popup-content {
             font-size: 14px;
+        }
+        .message-form {
+            margin: 0;
+        }
+        .message-form textarea {
+            width: 100%;
+            height: 60px;
+            resize: none;
+        }
+        .message-list {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .message-item {
+            border-bottom: 1px solid #ccc;
+            padding: 5px 0;
+        }
+        .delete-pin {
+            color: red;
+            cursor: pointer;
+            font-size: 12px;
         }
     </style>
     <!-- LeafletのCSSを読み込み -->
@@ -35,73 +57,140 @@
             attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
         }).addTo(map);
 
-        // レイヤーの追加（淡色地図や写真など）
-        var paleMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png');
-        var photoMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ort/{z}/{x}/{y}.jpg');
-
-        // ハザードマップのレイヤー追加（例として浸水想定区域）
+        // レイヤーの追加（例として浸水想定区域）
         var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/inundation/{z}/{x}/{y}.png', {
             opacity: 0.5
         });
 
         // レイヤーコントロールを追加
         var baseMaps = {
-            "標準地図": stdMap,
-            "淡色地図": paleMap,
-            "写真": photoMap
+            "標準地図": stdMap
         };
 
         var overlayMaps = {
             "浸水想定区域": floodLayer
-            // 他のハザードレイヤーも追加可能
         };
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // 避難所のデータ（サンプル）
-        var shelters = [
-            {
-                name: "中央区総合スポーツセンター",
-                lat: 35.6825,
-                lng: 139.7740,
-                info: "収容人数: 800人<br>設備: 電源〇、Wi-Fi〇、トイレ◎<br>混雑度: 50%"
-            },
-            {
-                name: "日本橋小学校",
-                lat: 35.6861,
-                lng: 139.7785,
-                info: "収容人数: 500人<br>設備: 電源△、Wi-Fi×、トイレ〇<br>混雑度: 75%"
+        // ピンを保存するためのレイヤーグループ
+        var pinLayer = L.layerGroup().addTo(map);
+
+        // マップをクリックしたときにピンを設置
+        map.on('click', function(e) {
+            var newPin = L.marker(e.latlng, {draggable: true}).addTo(pinLayer);
+
+            // ピンにポップアップを設定
+            newPin.bindPopup(createPopupContent(newPin)).openPopup();
+
+            // ピンがドラッグされたときにポップアップを更新
+            newPin.on('dragend', function() {
+                newPin.getPopup().setContent(createPopupContent(newPin));
+            });
+        });
+
+        // ポップアップの内容を生成
+        function createPopupContent(marker) {
+            var container = document.createElement('div');
+
+            // メッセージフォーム
+            var form = document.createElement('form');
+            form.className = 'message-form';
+
+            var textarea = document.createElement('textarea');
+            textarea.placeholder = '伝言を入力してください';
+            form.appendChild(textarea);
+
+            var submitButton = document.createElement('input');
+            submitButton.type = 'submit';
+            submitButton.value = '投稿';
+            form.appendChild(submitButton);
+
+            // メッセージリスト
+            var messageList = document.createElement('div');
+            messageList.className = 'message-list';
+
+            // メッセージを保存する配列をピンに保持
+            if (!marker.messages) {
+                marker.messages = [];
             }
-            // 他の避難所も追加可能
-        ];
 
-        // アイコンの設定
-        var shelterIcon = L.icon({
-            iconUrl: 'https://maps.gsi.go.jp/image/legend/避難所.png', // 適切なアイコン画像URLを指定
-            iconSize: [32, 37],
-            iconAnchor: [16, 37],
-            popupAnchor: [0, -37]
-        });
+            // 既存のメッセージを表示
+            marker.messages.forEach(function(msg) {
+                var messageItem = document.createElement('div');
+                messageItem.className = 'message-item';
+                messageItem.textContent = msg;
+                messageList.appendChild(messageItem);
+            });
 
-        // ピンを地図上に追加
-        shelters.forEach(function(shelter) {
-            L.marker([shelter.lat, shelter.lng], {icon: shelterIcon})
-                .addTo(map)
-                .bindPopup("<div class='popup-content'><strong>" + shelter.name + "</strong><br>" + shelter.info + "</div>");
-        });
+            // フォーム送信時の処理
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                var msg = textarea.value.trim();
+                if (msg) {
+                    marker.messages.push(msg);
 
-        // ユーザーの位置情報を取得して表示
+                    var messageItem = document.createElement('div');
+                    messageItem.className = 'message-item';
+                    messageItem.textContent = msg;
+                    messageList.appendChild(messageItem);
+
+                    textarea.value = '';
+                    textarea.focus();
+                }
+            };
+
+            container.appendChild(form);
+            container.appendChild(messageList);
+
+            // ピン削除ボタン
+            var deleteLink = document.createElement('a');
+            deleteLink.href = '#';
+            deleteLink.className = 'delete-pin';
+            deleteLink.textContent = 'このピンを削除';
+            deleteLink.onclick = function(e) {
+                e.preventDefault();
+                map.removeLayer(marker);
+            };
+            container.appendChild(deleteLink);
+
+            return container;
+        }
+
+        // 現在地ボタンを追加
+        L.control.locate({
+            position: 'topleft',
+            drawCircle: true,
+            showCompass: true,
+            strings: {
+                title: "現在地を表示"
+            }
+        }).addTo(map);
+
+        // 現在地を初期表示
         map.locate({setView: true, maxZoom: 16});
+
+        // 位置情報取得成功時の処理
         function onLocationFound(e) {
+            var radius = e.accuracy / 2;
+
             L.marker(e.latlng).addTo(map)
                 .bindPopup("現在地").openPopup();
+
+            L.circle(e.latlng, radius).addTo(map);
         }
+
         map.on('locationfound', onLocationFound);
 
+        // 位置情報取得失敗時の処理
         function onLocationError(e) {
             alert("位置情報を取得できませんでした。");
         }
+
         map.on('locationerror', onLocationError);
     </script>
+    <!-- Leaflet.LocateのCSSとJSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+    <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
 </body>
 </html>
