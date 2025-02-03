@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - 伝言掲示板機能付き</title>
+    <title>防災情報マップ - 現在地を円形マーカーで表示</title>
     <style>
         html, body, #map {
             height: 100%;
@@ -172,28 +172,38 @@
             return container;
         }
 
-        // 現在地ボタンを追加
-        L.control.locate({
-            position: 'topleft',
-            drawCircle: true,
-            showCompass: true,
-            strings: {
-                title: "現在地を表示"
-            }
-        }).addTo(map);
-
-        // 現在地を初期表示
-        map.locate({setView: true, maxZoom: 16});
-
-        // 位置情報取得成功時の処理
+        // 現在地を円形マーカーで表示
         function onLocationFound(e) {
             var radius = e.accuracy / 2;
 
-            L.marker(e.latlng).addTo(map)
-                .bindPopup("現在地").openPopup();
+            // 既存の現在地マーカーと精度円を削除
+            if (currentLocationMarker) {
+                map.removeLayer(currentLocationMarker);
+            }
+            if (currentLocationCircle) {
+                map.removeLayer(currentLocationCircle);
+            }
 
-            L.circle(e.latlng, radius).addTo(map);
+            // 円形マーカーを作成
+            currentLocationMarker = L.circleMarker(e.latlng, {
+                radius: 10,
+                fillColor: '#3388ff',
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 1
+            }).addTo(map).bindPopup("現在地").openPopup();
+
+            // 精度を示す円
+            currentLocationCircle = L.circle(e.latlng, radius, {
+                color: '#136AEC',
+                fillColor: '#136AEC',
+                fillOpacity: 0.15
+            }).addTo(map);
         }
+
+        var currentLocationMarker = null;
+        var currentLocationCircle = null;
 
         map.on('locationfound', onLocationFound);
 
@@ -203,6 +213,23 @@
         }
 
         map.on('locationerror', onLocationError);
+
+        // 現在地ボタンを追加
+        L.control.locate({
+            position: 'topleft',
+            drawCircle: false,
+            showCompass: true,
+            locateOptions: {
+                maxZoom: 16,
+                watch: true,
+                setView: true
+            },
+            strings: {
+                title: "現在地を表示"
+            },
+            onLocationError: onLocationError,
+            onLocationFound: onLocationFound
+        }).addTo(map);
 
         // ピンのデータをlocalStorageに保存
         function savePinToStorage() {
