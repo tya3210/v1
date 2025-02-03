@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - シングルピンモード</title>
+    <title>防災情報マップ - 伝言掲示板機能付き</title>
     <style>
         html, body, #map {
             height: 100%;
@@ -29,6 +29,11 @@
             border-bottom: 1px solid #ccc;
             padding: 5px 0;
         }
+        .delete-pin {
+            color: red;
+            cursor: pointer;
+            font-size: 12px;
+        }
     </style>
     <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -40,6 +45,9 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <!-- 地理院タイル読み込み -->
     <script src="https://maps.gsi.go.jp/js/leaflet-gsi.js"></script>
+    <!-- Leaflet.LocateのCSSとJSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+    <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
     <script>
         // 地図の初期化
         var map = L.map('map', {
@@ -71,6 +79,9 @@
         // 既存のピンを保持する変数
         var currentPin = null;
 
+        // localStorageからピンのデータを読み込み
+        loadPinFromStorage();
+
         // マップをクリックしたときの処理
         map.on('click', function(e) {
             // 既存のピンがある場合は削除
@@ -79,15 +90,18 @@
             }
 
             // 新しいピンを設置
-            currentPin = L.marker(e.latlng, {draggable: true}).addTo(map);
+            currentPin = L.marker(e.latlng).addTo(map);
+
+            // ピンにメッセージを保存するオブジェクトを追加
+            currentPin.data = {
+                messages: []
+            };
 
             // ピンにポップアップを設定
             currentPin.bindPopup(createPopupContent(currentPin)).openPopup();
 
-            // ピンがドラッグされたときにポップアップを更新
-            currentPin.on('dragend', function() {
-                currentPin.getPopup().setContent(createPopupContent(currentPin));
-            });
+            // ピンの位置とデータを保存
+            savePinToStorage();
         });
 
         // ポップアップの内容を生成
@@ -111,13 +125,8 @@
             var messageList = document.createElement('div');
             messageList.className = 'message-list';
 
-            // メッセージを保存する配列をピンに保持
-            if (!marker.messages) {
-                marker.messages = [];
-            }
-
             // 既存のメッセージを表示
-            marker.messages.forEach(function(msg) {
+            marker.data.messages.forEach(function(msg) {
                 var messageItem = document.createElement('div');
                 messageItem.className = 'message-item';
                 messageItem.textContent = msg;
@@ -129,7 +138,7 @@
                 e.preventDefault();
                 var msg = textarea.value.trim();
                 if (msg) {
-                    marker.messages.push(msg);
+                    marker.data.messages.push(msg);
 
                     var messageItem = document.createElement('div');
                     messageItem.className = 'message-item';
@@ -138,11 +147,27 @@
 
                     textarea.value = '';
                     textarea.focus();
+
+                    // メッセージを保存
+                    savePinToStorage();
                 }
             };
 
             container.appendChild(form);
             container.appendChild(messageList);
+
+            // ピン削除ボタン
+            var deleteLink = document.createElement('a');
+            deleteLink.href = '#';
+            deleteLink.className = 'delete-pin';
+            deleteLink.textContent = 'このピンを削除';
+            deleteLink.onclick = function(e) {
+                e.preventDefault();
+                map.removeLayer(marker);
+                currentPin = null;
+                removePinFromStorage();
+            };
+            container.appendChild(deleteLink);
 
             return container;
         }
@@ -178,9 +203,37 @@
         }
 
         map.on('locationerror', onLocationError);
+
+        // ピンのデータをlocalStorageに保存
+        function savePinToStorage() {
+            if (currentPin) {
+                var pinData = {
+                    latlng: currentPin.getLatLng(),
+                    messages: currentPin.data.messages
+                };
+                localStorage.setItem('currentPin', JSON.stringify(pinData));
+            }
+        }
+
+        // localStorageからピンのデータを読み込み
+        function loadPinFromStorage() {
+            var savedPin = localStorage.getItem('currentPin');
+            if (savedPin) {
+                var pinData = JSON.parse(savedPin);
+                currentPin = L.marker(pinData.latlng).addTo(map);
+
+                currentPin.data = {
+                    messages: pinData.messages
+                };
+
+                currentPin.bindPopup(createPopupContent(currentPin));
+            }
+        }
+
+        // ピンのデータをlocalStorageから削除
+        function removePinFromStorage() {
+            localStorage.removeItem('currentPin');
+        }
     </script>
-    <!-- Leaflet.LocateのCSSとJSを読み込み -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
-    <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
 </body>
 </html>
