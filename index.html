@@ -155,9 +155,9 @@
         });
 
         // 地理院地図の標準タイルを追加
-        var stdMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
             attribution:
-                "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"
+                "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
         }).addTo(map);
 
         // ハザードマップのレイヤー追加
@@ -165,19 +165,19 @@
         // 浸水想定区域
         var floodLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
+            attribution: "<a href='https://disaportal.gsi.go.jp/'>ハザードマップポータルサイト</a>"
         });
 
         // 土砂災害警戒区域
         var landslideLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/03_landslide_warning/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
+            attribution: "<a href='https://disaportal.gsi.go.jp/'>ハザードマップポータルサイト</a>"
         });
 
         // 津波浸水想定区域
         var tsunamiLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_tsunami_shinsui/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
+            attribution: "<a href='https://disaportal.gsi.go.jp/'>ハザードマップポータルサイト</a>"
         });
 
         // レイヤーコントロールを追加
@@ -193,19 +193,15 @@
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // ピンのアイコン設定
-        var emptyPinIcon = new L.Icon({
-            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
-        });
-
-        var messagePinIcon = new L.Icon({
-            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
+        // ピンのアイコン設定（Leafletデフォルトのアイコンを使用）
+        var defaultIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
         });
 
         // ピンを管理する配列
@@ -231,7 +227,7 @@
             }
 
             // 新しい空のピンを設置
-            currentEmptyPin = L.marker(e.latlng, { icon: emptyPinIcon }).addTo(map);
+            currentEmptyPin = L.marker(e.latlng, { icon: defaultIcon }).addTo(map);
 
             // ピンにメッセージを保存するオブジェクトを追加
             currentEmptyPin.data = {
@@ -310,8 +306,6 @@
 
                     // 空のピンから正式なピンに移動
                     if (currentEmptyPin === marker) {
-                        // アイコンを変更
-                        marker.setIcon(messagePinIcon);
                         pins.push(marker);
                         currentEmptyPin = null;
                     }
@@ -424,8 +418,7 @@
             if (savedPins) {
                 var pinsData = JSON.parse(savedPins);
                 pinsData.forEach(function(pinData) {
-                    var icon = pinData.messages.length > 0 ? messagePinIcon : emptyPinIcon;
-                    var pin = L.marker(pinData.latlng, { icon: icon }).addTo(map);
+                    var pin = L.marker(pinData.latlng, { icon: defaultIcon }).addTo(map);
                     pin.data = {
                         messages: pinData.messages
                     };
@@ -447,7 +440,6 @@
             var disasterInfoDiv = document.getElementById('disasterInfo');
             disasterInfoDiv.innerHTML = texts.disasterInfoLoading;
 
-            // 気象庁の防災情報APIの使用（CORSの問題があるため、実際のデータ取得は省略）
             // サンプルデータを表示します
             var sampleData = {
                 title: "気象特別警報・警報・注意報",
