@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - 完成版</title>
+    <title>防災情報マップ - 医療情報追加版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         html, body, #map {
@@ -44,17 +44,61 @@
             display: block;
             margin-top: 10px;
         }
-        .username-container {
+        .username-container, .medical-info-button {
             position: absolute;
             top: 10px;
-            right: 10px;
             z-index: 1000;
             background: rgba(255,255,255,0.9);
             padding: 10px;
             border-radius: 5px;
         }
+        .username-container {
+            right: 10px;
+        }
+        .medical-info-button {
+            left: 10px;
+        }
         .username-container input {
             width: 150px;
+        }
+        /* 医療情報モーダルのスタイル */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+        .modal-content h3 {
+            margin-top: 0;
+        }
+        .modal-content label {
+            display: block;
+            margin-top: 10px;
+        }
+        .modal-content input, .modal-content textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        .modal-close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            cursor: pointer;
         }
         /* フローティングウィンドウのスタイル */
         .info-window {
@@ -76,15 +120,19 @@
         }
         /* レスポンシブ対応 */
         @media only screen and (max-width: 600px) {
-            .username-container {
-                width: 100%;
+            .username-container, .medical-info-button {
+                width: calc(50% - 20px);
                 box-sizing: border-box;
-                left: 0;
-                right: 0;
-                top: 0;
+                top: 10px;
+            }
+            .username-container {
+                right: 10px;
+            }
+            .medical-info-button {
+                left: 10px;
             }
             .username-container input {
-                width: calc(100% - 20px);
+                width: 100%;
             }
             .info-window {
                 width: calc(100% - 20px);
@@ -100,6 +148,32 @@
     <!-- ユーザー名の設定 -->
     <div class="username-container">
         お名前: <input type="text" id="usernameInput" placeholder="ユーザー名を入力" />
+    </div>
+    <!-- 医療情報ボタン -->
+    <div class="medical-info-button">
+        <button id="openMedicalInfo">医療情報の入力・確認</button>
+    </div>
+    <!-- 医療情報モーダル -->
+    <div id="medicalModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" id="closeMedicalModal">&times;</span>
+            <h3>パーソナル医療情報</h3>
+            <form id="medicalForm">
+                <label for="healthStatus">健康状態・持病</label>
+                <textarea id="healthStatus" rows="3" placeholder="例：高血圧、糖尿病など"></textarea>
+
+                <label for="allergies">アレルギー情報</label>
+                <textarea id="allergies" rows="2" placeholder="例：ピーナッツアレルギー、ハチ刺されアレルギー"></textarea>
+
+                <label for="medications">常用薬</label>
+                <textarea id="medications" rows="2" placeholder="例：降圧薬、インスリン注射"></textarea>
+
+                <label for="emergencyContact">緊急連絡先</label>
+                <input type="text" id="emergencyContact" placeholder="例：090-1234-5678">
+
+                <button type="submit">保存</button>
+            </form>
+        </div>
     </div>
     <div id="map"></div>
     <!-- フローティングウィンドウ -->
@@ -132,7 +206,10 @@
             disasterInfoTitle: "防災情報",
             disasterInfoLoading: "最新の防災情報を取得中です...",
             disasterInfoError: "防災情報を取得できませんでした。",
-            noDisasterInfo: "現在、特別な防災情報はありません。"
+            noDisasterInfo: "現在、特別な防災情報はありません。",
+            medicalInfoTitle: "パーソナル医療情報",
+            saveButton: "保存",
+            closeButton: "閉じる"
         };
 
         document.title = texts.mapTitle;
@@ -459,6 +536,62 @@
         // 一定時間ごとに防災情報を更新（5分ごと）
         setInterval(fetchDisasterInfo, 5 * 60 * 1000);
 
+        // 医療情報モーダルの操作
+        var medicalModal = document.getElementById('medicalModal');
+        var openMedicalInfo = document.getElementById('openMedicalInfo');
+        var closeMedicalModal = document.getElementById('closeMedicalModal');
+        var medicalForm = document.getElementById('medicalForm');
+
+        // 医療情報をlocalStorageから読み込み
+        function loadMedicalInfo() {
+            return JSON.parse(localStorage.getItem('medicalInfo')) || {
+                healthStatus: '',
+                allergies: '',
+                medications: '',
+                emergencyContact: ''
+            };
+        }
+
+        // 医療情報をlocalStorageに保存
+        function saveMedicalInfo(data) {
+            localStorage.setItem('medicalInfo', JSON.stringify(data));
+        }
+
+        // モーダルを開く
+        openMedicalInfo.onclick = function() {
+            var medicalInfo = loadMedicalInfo();
+            document.getElementById('healthStatus').value = medicalInfo.healthStatus;
+            document.getElementById('allergies').value = medicalInfo.allergies;
+            document.getElementById('medications').value = medicalInfo.medications;
+            document.getElementById('emergencyContact').value = medicalInfo.emergencyContact;
+            medicalModal.style.display = 'block';
+        };
+
+        // モーダルを閉じる
+        closeMedicalModal.onclick = function() {
+            medicalModal.style.display = 'none';
+        };
+
+        // モーダル外をクリックしたときに閉じる
+        window.onclick = function(event) {
+            if (event.target == medicalModal) {
+                medicalModal.style.display = 'none';
+            }
+        };
+
+        // 医療情報フォームの送信処理
+        medicalForm.onsubmit = function(e) {
+            e.preventDefault();
+            var medicalInfo = {
+                healthStatus: document.getElementById('healthStatus').value.trim(),
+                allergies: document.getElementById('allergies').value.trim(),
+                medications: document.getElementById('medications').value.trim(),
+                emergencyContact: document.getElementById('emergencyContact').value.trim()
+            };
+            saveMedicalInfo(medicalInfo);
+            alert('医療情報を保存しました。');
+            medicalModal.style.display = 'none';
+        };
     </script>
 </body>
 </html>
