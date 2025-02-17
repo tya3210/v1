@@ -129,7 +129,7 @@
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
 
     <script>
-        // 言語設定（多言語対応のためにテキストをまとめる）
+        // 言語設定
         const texts = {
             mapTitle: "防災情報マップ",
             placeholderMessage: "伝言を入力してください",
@@ -201,18 +201,35 @@
             attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
+        // 液状化危険度
+        var liquefactionLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lsli/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
+         // 火山防災マップ (例: 噴火による火砕流・融雪型火山泥流危険区域)
+        var volcanoLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lvcmpfml/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
         // レイヤーコントロールを追加
         var baseMaps = {
             "標準地図": stdMap
         };
 
         var overlayMaps = {
-            "浸水想定区域": floodLayer,
-            "土砂災害危険箇所": landslideLayer,
-            "津波浸水想定区域": tsunamiLayer
+            "ハザードマップ": {
+                "浸水": floodLayer,
+                "土砂災害": landslideLayer,
+                "津波": tsunamiLayer,
+                "液状化": liquefactionLayer,
+                "火山": volcanoLayer
+            }
         };
 
-        L.control.layers(baseMaps, overlayMaps).addTo(map);
+        L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map); // collapsed: false で初期表示
+
 
         // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
         var emptyPinIcon = new L.Icon({
@@ -412,7 +429,7 @@
             supplyItemDiv.appendChild(supplyNameSpan);
 
             var expiryDate = new Date(supply.expiryDate);
-            var formattedExpiryDate = supply.expiryDate; // YYYY-MM-DD形式をそのまま表示
+            var formattedExpiryDate = supply.expiryDate; //YYYY-MM-DD形式をそのまま表示
             var expirySpan = document.createElement('span');
             expirySpan.className = 'supply-expiry';
             expirySpan.textContent = texts.expiryDatePlaceholder + ": " + formattedExpiryDate;
