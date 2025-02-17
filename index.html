@@ -1,441 +1,581 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>防災情報マップ - ハザードマップ対応版</title>
-  <style>
-    html, body, #map {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    .leaflet-popup-content {
-      font-size: 14px;
-    }
-    .message-form {
-      margin: 0;
-    }
-    .message-form textarea {
-      width: 100%;
-      height: 60px;
-      resize: none;
-    }
-    .message-list {
-      max-height: 100px;
-      overflow-y: auto;
-      margin-top: 10px;
-    }
-    .message-item {
-      border-bottom: 1px solid #ccc;
-      padding: 5px 0;
-    }
-    .message-author {
-      font-weight: bold;
-      margin-right: 5px;
-    }
-    .delete-pin {
-      color: red;
-      cursor: pointer;
-      font-size: 12px;
-      display: block;
-      margin-top: 10px;
-    }
-    .username-container {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1000;
-      background: rgba(255,255,255,0.9);
-      padding: 10px;
-      border-radius: 5px;
-    }
-    .username-container input {
-      width: 150px;
-    }
-    /* フローティングウィンドウ：防災情報 */
-    .info-window {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      z-index: 1000;
-      background: rgba(255,255,255,0.9);
-      padding: 10px;
-      border-radius: 5px;
-      max-width: 300px;
-      max-height: 200px;
-      overflow-y: auto;
-      font-size: 14px;
-    }
-    .info-window h3 {
-      margin-top: 0;
-    }
-    /* 防災グッズ・非常食管理ウィンドウ（左上コントロールの右側に配置） */
-    #supplyManager {
-      position: absolute;
-      top: 10px;
-      left: 100px;  /* 現在地ボタン・ズームコントロールの右側へ */
-      z-index: 1000;
-      background: rgba(255,255,255,0.95);
-      padding: 10px;
-      border-radius: 5px;
-      max-width: 300px;
-      font-size: 14px;
-    }
-    #supplyManager h3 {
-      margin-top: 0;
-    }
-    #supplyManager form div {
-      margin-bottom: 5px;
-    }
-    #supplyManager input[type="text"],
-    #supplyManager input[type="date"] {
-      width: 100%;
-      box-sizing: border-box;
-    }
-    #supplyManager ul {
-      list-style: none;
-      padding-left: 0;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-    #supplyManager li {
-      margin-bottom: 5px;
-    }
-    #supplyManager button {
-      font-size: 12px;
-    }
-  </style>
-  <!-- Leaflet の CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <meta charset="UTF-8">
+    <title>防災情報マップ - ハザードマップ対応版</title>
+    <style>
+        html, body, #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .leaflet-popup-content {
+            font-size: 14px;
+        }
+        .message-form {
+            margin: 0;
+        }
+        .message-form textarea {
+            width: 100%;
+            height: 60px;
+            resize: none;
+        }
+        .message-list {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .message-item {
+            border-bottom: 1px solid #ccc;
+            padding: 5px 0;
+        }
+        .message-author {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .delete-pin {
+            color: red;
+            cursor: pointer;
+            font-size: 12px;
+            display: block;
+            margin-top: 10px;
+        }
+        .username-container {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .username-container input {
+            width: 150px;
+        }
+        /* フローティングウィンドウのスタイル */
+        .info-window {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+        .info-window h3 {
+            margin-top: 0;
+        }
+        /* 防災グッズ・非常食管理用ウィンドウ（現在地ボタン等の右側に配置） */
+        #supplyManager {
+            position: absolute;
+            top: 10px;
+            left: 70px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            font-size: 14px;
+        }
+        #supplyManager h3 {
+            margin-top: 0;
+        }
+        #supplyManager form div {
+            margin-bottom: 5px;
+        }
+        #supplyManager input[type="text"],
+        #supplyManager input[type="date"] {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #supplyManager ul {
+            list-style: none;
+            padding-left: 0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        #supplyManager li {
+            margin-bottom: 5px;
+        }
+        #supplyManager button {
+            font-size: 12px;
+        }
+    </style>
+    <!-- LeafletのCSSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-  <!-- ユーザー名設定 -->
-  <div class="username-container">
-    お名前: <input type="text" id="usernameInput" placeholder="ユーザー名を入力" />
-  </div>
-  <!-- マップ本体 -->
-  <div id="map"></div>
-  <!-- 防災情報ウィンドウ -->
-  <div class="info-window" id="infoWindow">
-    <h3>防災情報</h3>
-    <div id="disasterInfo">最新の防災情報を取得中です...</div>
-  </div>
-  <!-- 防災グッズ・非常食管理ウィンドウ -->
-  <div id="supplyManager">
-    <h3>防災グッズ・非常食管理</h3>
-    <form id="supplyForm">
-      <div>
-        <label for="supplyName">品目:</label>
-        <input type="text" id="supplyName" placeholder="例：非常食セット" required />
-      </div>
-      <div>
-        <label for="expirationDate">賞味期限:</label>
-        <input type="date" id="expirationDate" required />
-      </div>
-      <div>
-        <input type="submit" value="追加" />
-      </div>
-    </form>
-    <ul id="supplyList"></ul>
-  </div>
+    <!-- ユーザー名の設定 -->
+    <div class="username-container">
+        お名前: <input type="text" id="usernameInput" placeholder="ユーザー名を入力" />
+    </div>
+    <div id="map"></div>
+    <!-- フローティングウィンドウ -->
+    <div class="info-window" id="infoWindow">
+        <h3>防災情報</h3>
+        <div id="disasterInfo">最新の防災情報を取得中です...</div>
+    </div>
+    <!-- 防災グッズ・非常食管理ウィンドウ -->
+    <div id="supplyManager">
+        <h3>防災グッズ・非常食管理</h3>
+        <form id="supplyForm">
+            <div>
+                <label for="supplyName">品目:</label>
+                <input type="text" id="supplyName" placeholder="例：非常食セット" required />
+            </div>
+            <div>
+                <label for="expirationDate">賞味期限:</label>
+                <input type="date" id="expirationDate" required />
+            </div>
+            <div>
+                <input type="submit" value="追加" />
+            </div>
+        </form>
+        <ul id="supplyList"></ul>
+    </div>
 
-  <!-- 必要なスクリプトの読み込み -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
-  <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
+    <!-- 必要なスクリプトの読み込み -->
+    <!-- LeafletのJSを読み込み -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- サニタイズ用のDOMPurifyを読み込み -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+    <!-- Leaflet.LocateのCSSとJSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
+    <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
 
-  <script>
-    // テキスト設定
-    const texts = {
-      mapTitle: "防災情報マップ",
-      placeholderMessage: "伝言を入力してください",
-      placeholderUsername: "ユーザー名を入力",
-      postButton: "投稿",
-      deletePin: "このピンを削除",
-      currentLocation: "現在地",
-      displayCurrentLocation: "現在地を表示",
-      alertLocationError: "位置情報を取得できませんでした。",
-      alertNoUsername: "ユーザー名を入力してください。",
-      disasterInfoTitle: "防災情報",
-      disasterInfoLoading: "最新の防災情報を取得中です...",
-      disasterInfoError: "防災情報を取得できませんでした。",
-      noDisasterInfo: "現在、特別な防災情報はありません。"
-    };
-    document.title = texts.mapTitle;
-
-    // ユーザー名管理
-    var username = localStorage.getItem('username') || '';
-    var usernameInput = document.getElementById('usernameInput');
-    usernameInput.value = username;
-    usernameInput.placeholder = texts.placeholderUsername;
-    usernameInput.addEventListener('change', function() {
-      username = usernameInput.value.trim();
-      localStorage.setItem('username', username);
-    });
-
-    // 地図初期化
-    var map = L.map('map', {
-      center: [35.681236, 139.767125],
-      zoom: 13
-    });
-    var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-      attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
-    }).addTo(map);
-
-    // ハザードマップレイヤー
-    var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png', {
-      opacity: 0.5,
-      attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
-    });
-    var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lssh/{z}/{x}/{y}.png', {
-      opacity: 0.5,
-      attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
-    });
-    var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lts/{z}/{x}/{y}.png', {
-      opacity: 0.5,
-      attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
-    });
-    var baseMaps = { "標準地図": stdMap };
-    var overlayMaps = {
-      "浸水想定区域": floodLayer,
-      "土砂災害危険箇所": landslideLayer,
-      "津波浸水想定区域": tsunamiLayer
-    };
-    L.control.layers(baseMaps, overlayMaps).addTo(map);
-
-    // ピンアイコン設定
-    var emptyPinIcon = new L.Icon({
-      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
-    });
-    var messagePinIcon = new L.Icon({
-      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
-    });
-
-    // ピン管理
-    var pins = [];
-    var currentEmptyPin = null;
-    loadPinsFromStorage();
-
-    map.on('click', function(e) {
-      if (!username.trim()) {
-        alert(texts.alertNoUsername);
-        return;
-      }
-      if (currentEmptyPin && currentEmptyPin.data.messages.length === 0) {
-        map.removeLayer(currentEmptyPin);
-      }
-      currentEmptyPin = L.marker(e.latlng, { icon: emptyPinIcon }).addTo(map);
-      currentEmptyPin.data = { messages: [] };
-      currentEmptyPin.bindPopup(createPopupContent(currentEmptyPin)).openPopup();
-    });
-
-    function createPopupContent(marker) {
-      var container = document.createElement('div');
-      var form = document.createElement('form');
-      form.className = 'message-form';
-      var textarea = document.createElement('textarea');
-      textarea.placeholder = texts.placeholderMessage;
-      form.appendChild(textarea);
-      var submitButton = document.createElement('input');
-      submitButton.type = 'submit';
-      submitButton.value = texts.postButton;
-      form.appendChild(submitButton);
-      var messageList = document.createElement('div');
-      messageList.className = 'message-list';
-      marker.data.messages.forEach(function(msgObj) {
-        var messageItem = document.createElement('div');
-        messageItem.className = 'message-item';
-        var authorSpan = document.createElement('span');
-        authorSpan.className = 'message-author';
-        authorSpan.textContent = sanitize(msgObj.author + ": ");
-        var messageSpan = document.createElement('span');
-        messageSpan.textContent = sanitize(msgObj.text);
-        messageItem.appendChild(authorSpan);
-        messageItem.appendChild(messageSpan);
-        messageList.appendChild(messageItem);
-      });
-      form.onsubmit = function(e) {
-        e.preventDefault();
-        var msg = textarea.value.trim();
-        if (msg) {
-          var msgObj = { author: username, text: msg };
-          marker.data.messages.push(msgObj);
-          var messageItem = document.createElement('div');
-          messageItem.className = 'message-item';
-          var authorSpan = document.createElement('span');
-          authorSpan.className = 'message-author';
-          authorSpan.textContent = sanitize(username + ": ");
-          var messageSpan = document.createElement('span');
-          messageSpan.textContent = sanitize(msg);
-          messageItem.appendChild(authorSpan);
-          messageItem.appendChild(messageSpan);
-          messageList.appendChild(messageItem);
-          textarea.value = '';
-          textarea.focus();
-          if (currentEmptyPin === marker) {
-            marker.setIcon(messagePinIcon);
-            pins.push(marker);
-            currentEmptyPin = null;
-          }
-          savePinsToStorage();
-        }
-      };
-      container.appendChild(form);
-      container.appendChild(messageList);
-      var deleteLink = document.createElement('a');
-      deleteLink.href = '#';
-      deleteLink.className = 'delete-pin';
-      deleteLink.textContent = texts.deletePin;
-      deleteLink.onclick = function(e) {
-        e.preventDefault();
-        map.removeLayer(marker);
-        pins = pins.filter(function(pin) { return pin !== marker; });
-        savePinsToStorage();
-      };
-      container.appendChild(deleteLink);
-      return container;
-    }
-
-    function sanitize(str) {
-      return DOMPurify.sanitize(str);
-    }
-
-    // 現在地表示
-    function onLocationFound(e) {
-      var radius = e.accuracy / 2;
-      if (currentLocationMarker) { map.removeLayer(currentLocationMarker); }
-      if (currentLocationCircle) { map.removeLayer(currentLocationCircle); }
-      currentLocationMarker = L.circleMarker(e.latlng, {
-        radius: 10,
-        fillColor: '#3388ff',
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 1
-      }).addTo(map).bindPopup(texts.currentLocation).openPopup();
-      currentLocationCircle = L.circle(e.latlng, radius, {
-        color: '#136AEC',
-        fillColor: '#136AEC',
-        fillOpacity: 0.15
-      }).addTo(map);
-    }
-    var currentLocationMarker = null;
-    var currentLocationCircle = null;
-    map.on('locationfound', onLocationFound);
-    function onLocationError(e) {
-      alert(texts.alertLocationError);
-    }
-    map.on('locationerror', onLocationError);
-    L.control.locate({
-      position: 'topleft',
-      drawCircle: false,
-      showCompass: true,
-      locateOptions: { maxZoom: 16, watch: true, setView: true },
-      strings: { title: texts.displayCurrentLocation },
-      onLocationError: onLocationError,
-      onLocationFound: onLocationFound
-    }).addTo(map);
-
-    function savePinsToStorage() {
-      var pinsData = pins.map(function(pin) {
-        return { latlng: pin.getLatLng(), messages: pin.data.messages };
-      });
-      localStorage.setItem('pins', JSON.stringify(pinsData));
-    }
-    function loadPinsFromStorage() {
-      var savedPins = localStorage.getItem('pins');
-      if (savedPins) {
-        var pinsData = JSON.parse(savedPins);
-        pinsData.forEach(function(pinData) {
-          var icon = pinData.messages.length > 0 ? messagePinIcon : emptyPinIcon;
-          var pin = L.marker(pinData.latlng, { icon: icon }).addTo(map);
-          pin.data = { messages: pinData.messages };
-          pin.bindPopup(createPopupContent(pin));
-          pins.push(pin);
-        });
-      }
-    }
-    if (!username.trim()) {
-      setTimeout(function() { alert(texts.alertNoUsername); }, 500);
-    }
-
-    /* 防災グッズ・非常食管理機能 */
-    let supplies = [];
-    function loadSupplies() {
-      const savedSupplies = localStorage.getItem('supplies');
-      if (savedSupplies) { supplies = JSON.parse(savedSupplies); }
-    }
-    function saveSupplies() { localStorage.setItem('supplies', JSON.stringify(supplies)); }
-    function renderSupplyList() {
-      const supplyList = document.getElementById('supplyList');
-      supplyList.innerHTML = '';
-      supplies.forEach((supply) => {
-        const li = document.createElement('li');
-        const expirationDate = new Date(supply.expirationDate);
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const expired = expirationDate < today;
-        li.style.color = expired ? 'red' : 'black';
-        li.textContent = supply.name + ' - 賞味期限: ' + supply.expirationDate;
-        const deleteButton = document.createElement('button');
-        deleteButton.textContent = '削除';
-        deleteButton.style.marginLeft = '10px';
-        deleteButton.onclick = function() {
-          supplies = supplies.filter(item => item.id !== supply.id);
-          saveSupplies();
-          renderSupplyList();
+    <script>
+        // 言語設定（多言語対応のためにテキストをまとめる）
+        const texts = {
+            mapTitle: "防災情報マップ",
+            placeholderMessage: "伝言を入力してください",
+            placeholderUsername: "ユーザー名を入力",
+            postButton: "投稿",
+            deletePin: "このピンを削除",
+            currentLocation: "現在地",
+            displayCurrentLocation: "現在地を表示",
+            alertLocationError: "位置情報を取得できませんでした。",
+            alertNoUsername: "ユーザー名を入力してください。",
+            nameLabel: "お名前: ",
+            disasterInfoTitle: "防災情報",
+            disasterInfoLoading: "最新の防災情報を取得中です...",
+            disasterInfoError: "防災情報を取得できませんでした。",
+            noDisasterInfo: "現在、特別な防災情報はありません。"
         };
-        li.appendChild(deleteButton);
-        supplyList.appendChild(li);
-      });
-    }
-    function checkExpiredSupplies() {
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      supplies.forEach((supply) => {
-        const expirationDate = new Date(supply.expirationDate);
-        if (expirationDate < today && !supply.notified) {
-          if (Notification && Notification.permission === 'granted') {
-            new Notification('賞味期限切れのお知らせ', {
-              body: supply.name + 'の賞味期限が切れています。'
+
+        document.title = texts.mapTitle;
+
+        // ユーザー名の管理
+        var username = localStorage.getItem('username') || '';
+        var usernameInput = document.getElementById('usernameInput');
+        usernameInput.value = username;
+        usernameInput.placeholder = texts.placeholderUsername;
+
+        usernameInput.addEventListener('change', function() {
+            username = usernameInput.value.trim();
+            localStorage.setItem('username', username);
+        });
+
+        // 地図の初期化
+        var map = L.map('map', {
+            center: [35.681236, 139.767125], // 東京駅の位置
+            zoom: 13
+        });
+
+        // 地理院地図の標準タイルを追加
+        var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+            attribution:
+                "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
+        }).addTo(map);
+
+        // ハザードマップのレイヤー追加
+
+        // 浸水想定区域（洪水浸水想定区域）
+        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
+        // 土砂災害危険箇所
+        var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lssh/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
+        // 津波浸水想定区域
+        var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lts/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
+        // レイヤーコントロールを追加
+        var baseMaps = {
+            "標準地図": stdMap
+        };
+
+        var overlayMaps = {
+            "浸水想定区域": floodLayer,
+            "土砂災害危険箇所": landslideLayer,
+            "津波浸水想定区域": tsunamiLayer
+        };
+
+        L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
+        var emptyPinIcon = new L.Icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+
+        var messagePinIcon = new L.Icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
+
+        // ピンを管理する配列
+        var pins = [];
+
+        // 一時的な空のピンを保持する変数
+        var currentEmptyPin = null;
+
+        // localStorageからピンのデータを読み込み
+        loadPinsFromStorage();
+
+        // マップをクリックしたときの処理
+        map.on('click', function(e) {
+            // ユーザー名が未入力の場合はアラートを表示
+            if (!username.trim()) {
+                alert(texts.alertNoUsername);
+                return;
+            }
+
+            // 既存の空のピンがあり、メッセージがない場合は削除
+            if (currentEmptyPin && currentEmptyPin.data.messages.length === 0) {
+                map.removeLayer(currentEmptyPin);
+            }
+
+            // 新しい空のピンを設置
+            currentEmptyPin = L.marker(e.latlng, { icon: emptyPinIcon }).addTo(map);
+
+            // ピンにメッセージを保存するオブジェクトを追加
+            currentEmptyPin.data = {
+                messages: []
+            };
+
+            // ピンにポップアップを設定
+            currentEmptyPin.bindPopup(createPopupContent(currentEmptyPin)).openPopup();
+        });
+
+        // ポップアップの内容を生成
+        function createPopupContent(marker) {
+            var container = document.createElement('div');
+
+            // メッセージフォーム
+            var form = document.createElement('form');
+            form.className = 'message-form';
+
+            var textarea = document.createElement('textarea');
+            textarea.placeholder = texts.placeholderMessage;
+            form.appendChild(textarea);
+
+            var submitButton = document.createElement('input');
+            submitButton.type = 'submit';
+            submitButton.value = texts.postButton;
+            form.appendChild(submitButton);
+
+            // メッセージリスト
+            var messageList = document.createElement('div');
+            messageList.className = 'message-list';
+
+            // 既存のメッセージを表示
+            marker.data.messages.forEach(function(msgObj) {
+                var messageItem = document.createElement('div');
+                messageItem.className = 'message-item';
+
+                var authorSpan = document.createElement('span');
+                authorSpan.className = 'message-author';
+                authorSpan.textContent = sanitize(msgObj.author + ": ");
+
+                var messageSpan = document.createElement('span');
+                messageSpan.textContent = sanitize(msgObj.text);
+
+                messageItem.appendChild(authorSpan);
+                messageItem.appendChild(messageSpan);
+                messageList.appendChild(messageItem);
             });
-          }
-          supply.notified = true;
+
+            // フォーム送信時の処理
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                var msg = textarea.value.trim();
+                if (msg) {
+                    var msgObj = {
+                        author: username,
+                        text: msg
+                    };
+                    marker.data.messages.push(msgObj);
+
+                    var messageItem = document.createElement('div');
+                    messageItem.className = 'message-item';
+
+                    var authorSpan = document.createElement('span');
+                    authorSpan.className = 'message-author';
+                    authorSpan.textContent = sanitize(username + ": ");
+
+                    var messageSpan = document.createElement('span');
+                    messageSpan.textContent = sanitize(msg);
+
+                    messageItem.appendChild(authorSpan);
+                    messageItem.appendChild(messageSpan);
+                    messageList.appendChild(messageItem);
+
+                    textarea.value = '';
+                    textarea.focus();
+
+                    // 空のピンから正式なピンに移動
+                    if (currentEmptyPin === marker) {
+                        // アイコンを変更
+                        marker.setIcon(messagePinIcon);
+                        pins.push(marker);
+                        currentEmptyPin = null;
+                    }
+
+                    // ピンのデータを保存
+                    savePinsToStorage();
+                }
+            };
+
+            container.appendChild(form);
+            container.appendChild(messageList);
+
+            // ピン削除ボタン
+            var deleteLink = document.createElement('a');
+            deleteLink.href = '#';
+            deleteLink.className = 'delete-pin';
+            deleteLink.textContent = texts.deletePin;
+            deleteLink.onclick = function(e) {
+                e.preventDefault();
+                map.removeLayer(marker);
+                pins = pins.filter(function(pin) {
+                    return pin !== marker;
+                });
+                // ピンのデータを保存
+                savePinsToStorage();
+            };
+            container.appendChild(deleteLink);
+
+            return container;
         }
-      });
-      saveSupplies();
-      renderSupplyList();
-    }
-    if (window.Notification && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
-    loadSupplies();
-    renderSupplyList();
-    const supplyForm = document.getElementById('supplyForm');
-    supplyForm.onsubmit = function(e) {
-      e.preventDefault();
-      const nameInput = document.getElementById('supplyName');
-      const dateInput = document.getElementById('expirationDate');
-      const name = nameInput.value.trim();
-      const expirationDate = dateInput.value;
-      if (name && expirationDate) {
-        const newSupply = { id: Date.now(), name: name, expirationDate: expirationDate, notified: false };
-        supplies.push(newSupply);
-        saveSupplies();
+
+        // サニタイズ関数（DOMPurifyを使用）
+        function sanitize(str) {
+            return DOMPurify.sanitize(str);
+        }
+
+        // 現在地を円形マーカーで表示
+        function onLocationFound(e) {
+            var radius = e.accuracy / 2;
+
+            // 既存の現在地マーカーと精度円を削除
+            if (currentLocationMarker) {
+                map.removeLayer(currentLocationMarker);
+            }
+            if (currentLocationCircle) {
+                map.removeLayer(currentLocationCircle);
+            }
+
+            // 円形マーカーを作成
+            currentLocationMarker = L.circleMarker(e.latlng, {
+                radius: 10,
+                fillColor: '#3388ff',
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 1
+            }).addTo(map).bindPopup(texts.currentLocation).openPopup();
+
+            // 精度を示す円
+            currentLocationCircle = L.circle(e.latlng, radius, {
+                color: '#136AEC',
+                fillColor: '#136AEC',
+                fillOpacity: 0.15
+            }).addTo(map);
+        }
+
+        var currentLocationMarker = null;
+        var currentLocationCircle = null;
+
+        map.on('locationfound', onLocationFound);
+
+        // 位置情報取得失敗時の処理
+        function onLocationError(e) {
+            alert(texts.alertLocationError);
+        }
+
+        map.on('locationerror', onLocationError);
+
+        // 現在地ボタンを追加
+        L.control.locate({
+            position: 'topleft',
+            drawCircle: false,
+            showCompass: true,
+            locateOptions: {
+                maxZoom: 16,
+                watch: true,
+                setView: true
+            },
+            strings: {
+                title: texts.displayCurrentLocation
+            },
+            onLocationError: onLocationError,
+            onLocationFound: onLocationFound
+        }).addTo(map);
+
+        // ピンのデータをlocalStorageに保存
+        function savePinsToStorage() {
+            var pinsData = pins.map(function(pin) {
+                return {
+                    latlng: pin.getLatLng(),
+                    messages: pin.data.messages
+                };
+            });
+            localStorage.setItem('pins', JSON.stringify(pinsData));
+        }
+
+        // localStorageからピンのデータを読み込み
+        function loadPinsFromStorage() {
+            var savedPins = localStorage.getItem('pins');
+            if (savedPins) {
+                var pinsData = JSON.parse(savedPins);
+                pinsData.forEach(function(pinData) {
+                    var icon = pinData.messages.length > 0 ? messagePinIcon : emptyPinIcon;
+                    var pin = L.marker(pinData.latlng, { icon: icon }).addTo(map);
+                    pin.data = {
+                        messages: pinData.messages
+                    };
+                    pin.bindPopup(createPopupContent(pin));
+                    pins.push(pin);
+                });
+            }
+        }
+
+        // ページ読み込み時にユーザー名が未設定の場合の処理
+        if (!username.trim()) {
+            setTimeout(function() {
+                alert(texts.alertNoUsername);
+            }, 500);
+        }
+
+        // ※防災情報の取得コードは省略
+
+        /* ===============================
+           防災グッズ・非常食管理機能
+           ・品目名と賞味期限を登録し、localStorageに保存
+           ・一覧表示時、期限切れ品目は赤文字表示
+           ・期限切れの品目は通知を送信（Notification API利用）
+        =============================== */
+        let supplies = [];
+
+        function loadSupplies() {
+            const savedSupplies = localStorage.getItem('supplies');
+            if (savedSupplies) {
+                supplies = JSON.parse(savedSupplies);
+            }
+        }
+
+        function saveSupplies() {
+            localStorage.setItem('supplies', JSON.stringify(supplies));
+        }
+
+        function renderSupplyList() {
+            const supplyList = document.getElementById('supplyList');
+            supplyList.innerHTML = '';
+            supplies.forEach((supply) => {
+                const li = document.createElement('li');
+                const expirationDate = new Date(supply.expirationDate);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const expired = expirationDate < today;
+                li.style.color = expired ? 'red' : 'black';
+                li.textContent = supply.name + ' - 賞味期限: ' + supply.expirationDate;
+                
+                // 削除ボタン
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = '削除';
+                deleteButton.style.marginLeft = '10px';
+                deleteButton.onclick = function() {
+                    supplies = supplies.filter(item => item.id !== supply.id);
+                    saveSupplies();
+                    renderSupplyList();
+                };
+                li.appendChild(deleteButton);
+
+                supplyList.appendChild(li);
+            });
+        }
+
+        // 期限切れチェックと通知送信
+        function checkExpiredSupplies() {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            supplies.forEach((supply) => {
+                const expirationDate = new Date(supply.expirationDate);
+                if (expirationDate < today && !supply.notified) {
+                    if (Notification && Notification.permission === 'granted') {
+                        new Notification('賞味期限切れのお知らせ', {
+                            body: supply.name + 'の賞味期限が切れています。'
+                        });
+                    }
+                    supply.notified = true;
+                }
+            });
+            saveSupplies();
+            renderSupplyList();
+        }
+
+        // Notificationの許可をリクエスト
+        if (window.Notification && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+        }
+
+        // supplies の初期読み込み・表示
+        loadSupplies();
         renderSupplyList();
-        nameInput.value = '';
-        dateInput.value = '';
-      }
-    };
-    setInterval(checkExpiredSupplies, 60000);
-    checkExpiredSupplies();
-  </script>
+
+        // 品目追加フォームの処理
+        const supplyForm = document.getElementById('supplyForm');
+        supplyForm.onsubmit = function(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('supplyName');
+            const dateInput = document.getElementById('expirationDate');
+            const name = nameInput.value.trim();
+            const expirationDate = dateInput.value;
+            if (name && expirationDate) {
+                const newSupply = {
+                    id: Date.now(),
+                    name: name,
+                    expirationDate: expirationDate,
+                    notified: false
+                };
+                supplies.push(newSupply);
+                saveSupplies();
+                renderSupplyList();
+                nameInput.value = '';
+                dateInput.value = '';
+            }
+        };
+
+        // 毎分、期限切れチェックを実行
+        setInterval(checkExpiredSupplies, 60000);
+        // 初回チェック
+        checkExpiredSupplies();
+    </script>
 </body>
 </html>
