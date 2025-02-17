@@ -2,16 +2,12 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - 完成版</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>防災情報マップ - ハザードマップ対応版</title>
     <style>
         html, body, #map {
             height: 100%;
             margin: 0;
             padding: 0;
-        }
-        body {
-            font-family: Arial, sans-serif;
         }
         .leaflet-popup-content {
             font-size: 14px;
@@ -72,25 +68,6 @@
         }
         .info-window h3 {
             margin-top: 0;
-            font-size: 16px;
-        }
-        /* レスポンシブ対応 */
-        @media only screen and (max-width: 600px) {
-            .username-container {
-                width: 100%;
-                box-sizing: border-box;
-                left: 0;
-                right: 0;
-                top: 0;
-            }
-            .username-container input {
-                width: calc(100% - 20px);
-            }
-            .info-window {
-                width: calc(100% - 20px);
-                left: 10px;
-                bottom: 70px;
-            }
         }
     </style>
     <!-- LeafletのCSSを読み込み -->
@@ -113,11 +90,12 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <!-- サニタイズ用のDOMPurifyを読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
-    <!-- Leaflet.LocateのJSを読み込み -->
+    <!-- Leaflet.LocateのCSSとJSを読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
 
     <script>
-        // 言語設定
+        // 言語設定（多言語対応のためにテキストをまとめる）
         const texts = {
             mapTitle: "防災情報マップ",
             placeholderMessage: "伝言を入力してください",
@@ -150,34 +128,34 @@
 
         // 地図の初期化
         var map = L.map('map', {
-            center: [35.681236, 139.767125],
+            center: [35.681236, 139.767125], // 東京駅の位置
             zoom: 13
         });
 
         // 地理院地図の標準タイルを追加
-        var stdMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
             attribution:
-                "<a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>"
+                "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
         }).addTo(map);
 
         // ハザードマップのレイヤー追加
 
-        // 浸水想定区域
-        var floodLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin/{z}/{x}/{y}.png', {
+        // 浸水想定区域（洪水浸水想定区域）
+        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
-        // 土砂災害警戒区域
-        var landslideLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/03_landslide_warning/{z}/{x}/{y}.png', {
+        // 土砂災害危険箇所
+        var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lssh/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
         // 津波浸水想定区域
-        var tsunamiLayer = L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_tsunami_shinsui/{z}/{x}/{y}.png', {
+        var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lts/{z}/{x}/{y}.png', {
             opacity: 0.5,
-            attribution: "<a href='https://disaportal.gsi.go.jp/'>国土交通省ハザードマップポータルサイト</a>"
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
         // レイヤーコントロールを追加
@@ -187,13 +165,13 @@
 
         var overlayMaps = {
             "浸水想定区域": floodLayer,
-            "土砂災害警戒区域": landslideLayer,
+            "土砂災害危険箇所": landslideLayer,
             "津波浸水想定区域": tsunamiLayer
         };
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // ピンのアイコン設定
+        // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
         var emptyPinIcon = new L.Icon({
             iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
             iconSize: [32, 32],
@@ -442,30 +420,9 @@
             }, 500);
         }
 
-        // 防災情報を取得する関数（サンプル実装）
-        function fetchDisasterInfo() {
-            var disasterInfoDiv = document.getElementById('disasterInfo');
-            disasterInfoDiv.innerHTML = texts.disasterInfoLoading;
+        // 防災情報を取得する関数（省略）
 
-            // 気象庁の防災情報APIの使用（CORSの問題があるため、実際のデータ取得は省略）
-            // サンプルデータを表示します
-            var sampleData = {
-                title: "気象特別警報・警報・注意報",
-                reportDatetime: "2023-10-14T15:00:00+09:00",
-                text: "現在、特別警報は発表されていません。"
-            };
-
-            var infoHtml = '<p><strong>' + sanitize(sampleData.title) + '</strong><br>';
-            infoHtml += '発表日時: ' + sanitize(sampleData.reportDatetime) + '</p>';
-            infoHtml += '<p>' + sanitize(sampleData.text.replace(/\n/g, '<br>')) + '</p>';
-            disasterInfoDiv.innerHTML = infoHtml;
-        }
-
-        // ページ読み込み時に防災情報を取得
-        fetchDisasterInfo();
-
-        // 一定時間ごとに防災情報を更新（5分ごと）
-        setInterval(fetchDisasterInfo, 5 * 60 * 1000);
+        // 必要に応じて防災情報の取得コードを追加してください
 
     </script>
 </body>
