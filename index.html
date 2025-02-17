@@ -69,81 +69,62 @@
         .info-window h3 {
             margin-top: 0;
         }
-        /* 防災グッズ・非常食管理用ウィンドウ（現在地ボタン等の右側に配置） */
-        #supplyManager {
-            position: absolute;
-            top: 10px;
-            left: 70px;
-            z-index: 1000;
-            background: rgba(255,255,255,0.95);
-            padding: 10px;
-            border-radius: 5px;
-            max-width: 300px;
-            font-size: 14px;
+        /* 物資管理機能のスタイル */
+        .supply-management {
+            margin-top: 10px;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
         }
-        #supplyManager h3 {
-            margin-top: 0;
-        }
-        #supplyManager form div {
-            margin-bottom: 5px;
-        }
-        #supplyManager input[type="text"],
-        #supplyManager input[type="date"] {
-            width: 100%;
-            box-sizing: border-box;
-        }
-        #supplyManager ul {
-            list-style: none;
-            padding-left: 0;
-            max-height: 150px;
+        .supply-list {
+            max-height: 100px;
             overflow-y: auto;
+            margin-top: 5px;
         }
-        #supplyManager li {
-            margin-bottom: 5px;
+        .supply-item {
+            border-bottom: 1px dashed #ddd;
+            padding: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        #supplyManager button {
-            font-size: 12px;
+        .supply-item:last-child {
+            border-bottom: none;
+        }
+        .supply-name {
+            margin-right: 10px;
+        }
+        .supply-expiry {
+            font-size: 0.9em;
+            color: #777;
+        }
+        .supply-expired {
+            color: red;
+            font-weight: bold;
+        }
+        .add-supply-button {
+            margin-top: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .no-supplies {
+            font-style: italic;
+            color: #888;
         }
     </style>
-    <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-    <!-- ユーザー名の設定 -->
     <div class="username-container">
         お名前: <input type="text" id="usernameInput" placeholder="ユーザー名を入力" />
     </div>
     <div id="map"></div>
-    <!-- フローティングウィンドウ -->
     <div class="info-window" id="infoWindow">
         <h3>防災情報</h3>
         <div id="disasterInfo">最新の防災情報を取得中です...</div>
     </div>
-    <!-- 防災グッズ・非常食管理ウィンドウ -->
-    <div id="supplyManager">
-        <h3>防災グッズ・非常食管理</h3>
-        <form id="supplyForm">
-            <div>
-                <label for="supplyName">品目:</label>
-                <input type="text" id="supplyName" placeholder="例：非常食セット" required />
-            </div>
-            <div>
-                <label for="expirationDate">賞味期限:</label>
-                <input type="date" id="expirationDate" required />
-            </div>
-            <div>
-                <input type="submit" value="追加" />
-            </div>
-        </form>
-        <ul id="supplyList"></ul>
-    </div>
 
-    <!-- 必要なスクリプトの読み込み -->
-    <!-- LeafletのJSを読み込み -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- サニタイズ用のDOMPurifyを読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
-    <!-- Leaflet.LocateのCSSとJSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
 
@@ -163,7 +144,16 @@
             disasterInfoTitle: "防災情報",
             disasterInfoLoading: "最新の防災情報を取得中です...",
             disasterInfoError: "防災情報を取得できませんでした。",
-            noDisasterInfo: "現在、特別な防災情報はありません。"
+            noDisasterInfo: "現在、特別な防災情報はありません。",
+            supplyManagementTitle: "物資管理",
+            addSupplyButton: "物資を追加",
+            supplyNamePlaceholder: "物資名",
+            expiryDatePlaceholder: "賞味期限 (YYYY-MM-DD)",
+            addSupplyItem: "追加",
+            noSuppliesRegistered: "登録された物資はありません。",
+            expiryDateFormatError: "賞味期限はYYYY-MM-DD形式で入力してください。",
+            supplyItemDeleted: "物資を削除しました。",
+            expiryNotification: "賞味期限切れの物資があります："
         };
 
         document.title = texts.mapTitle;
@@ -257,16 +247,17 @@
             }
 
             // 既存の空のピンがあり、メッセージがない場合は削除
-            if (currentEmptyPin && currentEmptyPin.data.messages.length === 0) {
+            if (currentEmptyPin && currentEmptyPin.data.messages.length === 0 && (!currentEmptyPin.data.supplies || currentEmptyPin.data.supplies.length === 0)) {
                 map.removeLayer(currentEmptyPin);
             }
 
             // 新しい空のピンを設置
             currentEmptyPin = L.marker(e.latlng, { icon: emptyPinIcon }).addTo(map);
 
-            // ピンにメッセージを保存するオブジェクトを追加
+            // ピンにメッセージと物資を保存するオブジェクトを追加
             currentEmptyPin.data = {
-                messages: []
+                messages: [],
+                supplies: [] // 物資リストを追加
             };
 
             // ピンにポップアップを設定
@@ -311,7 +302,7 @@
                 messageList.appendChild(messageItem);
             });
 
-            // フォーム送信時の処理
+            // フォーム送信時の処理（メッセージ）
             form.onsubmit = function(e) {
                 e.preventDefault();
                 var msg = textarea.value.trim();
@@ -355,6 +346,42 @@
             container.appendChild(form);
             container.appendChild(messageList);
 
+            // 物資管理機能
+            var supplyManagementDiv = document.createElement('div');
+            supplyManagementDiv.className = 'supply-management';
+
+            var supplyTitle = document.createElement('h4');
+            supplyTitle.textContent = texts.supplyManagementTitle;
+            supplyManagementDiv.appendChild(supplyTitle);
+
+            // 物資リスト表示
+            var supplyListDiv = document.createElement('div');
+            supplyListDiv.className = 'supply-list';
+            if (marker.data.supplies && marker.data.supplies.length > 0) {
+                marker.data.supplies.forEach(function(supply, index) {
+                    var supplyItemDiv = createSupplyItemElement(supply, marker, index);
+                    supplyListDiv.appendChild(supplyItemDiv);
+                });
+            } else {
+                var noSuppliesMessage = document.createElement('p');
+                noSuppliesMessage.className = 'no-supplies';
+                noSuppliesMessage.textContent = texts.noSuppliesRegistered;
+                supplyListDiv.appendChild(noSuppliesMessage);
+            }
+            supplyManagementDiv.appendChild(supplyListDiv);
+
+            // 物資追加ボタン
+            var addSupplyButton = document.createElement('button');
+            addSupplyButton.textContent = texts.addSupplyButton;
+            addSupplyButton.className = 'add-supply-button';
+            addSupplyButton.onclick = function() {
+                showAddSupplyForm(marker, supplyListDiv);
+            };
+            supplyManagementDiv.appendChild(addSupplyButton);
+
+            container.appendChild(supplyManagementDiv);
+
+
             // ピン削除ボタン
             var deleteLink = document.createElement('a');
             deleteLink.href = '#';
@@ -373,6 +400,119 @@
 
             return container;
         }
+
+        // 物資アイテムの要素を作成する関数
+        function createSupplyItemElement(supply, marker, index) {
+            var supplyItemDiv = document.createElement('div');
+            supplyItemDiv.className = 'supply-item';
+
+            var supplyNameSpan = document.createElement('span');
+            supplyNameSpan.className = 'supply-name';
+            supplyNameSpan.textContent = sanitize(supply.name);
+            supplyItemDiv.appendChild(supplyNameSpan);
+
+            var expiryDate = new Date(supply.expiryDate);
+            var formattedExpiryDate = supply.expiryDate; // YYYY-MM-DD形式をそのまま表示
+            var expirySpan = document.createElement('span');
+            expirySpan.className = 'supply-expiry';
+            expirySpan.textContent = texts.expiryDatePlaceholder + ": " + formattedExpiryDate;
+
+            if (expiryDate < new Date()) {
+                expirySpan.classList.add('supply-expired');
+            }
+            supplyItemDiv.appendChild(expirySpan);
+
+            // 削除ボタン
+            var deleteButton = document.createElement('button');
+            deleteButton.textContent = 'x';
+            deleteButton.onclick = function() {
+                marker.data.supplies.splice(index, 1); // supplies配列から削除
+                savePinsToStorage(); // localStorageに保存
+                supplyItemDiv.remove(); // 表示から削除
+                if (marker.data.supplies.length === 0) {
+                    // 物資がなくなった場合に「登録された物資はありません」を表示
+                    let supplyListDiv = supplyItemDiv.parentElement;
+                    let noSuppliesMessage = document.createElement('p');
+                    noSuppliesMessage.className = 'no-supplies';
+                    noSuppliesMessage.textContent = texts.noSuppliesRegistered;
+                    supplyListDiv.appendChild(noSuppliesMessage);
+                }
+                alert(texts.supplyItemDeleted);
+            };
+            supplyItemDiv.appendChild(deleteButton);
+
+
+            return supplyItemDiv;
+        }
+
+
+        // 物資追加フォームを表示する関数
+        function showAddSupplyForm(marker, supplyListDiv) {
+            var formContainer = document.createElement('div');
+            formContainer.className = 'add-supply-form';
+
+            var nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.placeholder = texts.supplyNamePlaceholder;
+            formContainer.appendChild(nameInput);
+
+            var expiryInput = document.createElement('input');
+            expiryInput.type = 'date';
+            expiryInput.placeholder = texts.expiryDatePlaceholder;
+            formContainer.appendChild(expiryInput);
+
+            var addButton = document.createElement('button');
+            addButton.textContent = texts.addSupplyItem;
+            addButton.onclick = function() {
+                var supplyName = nameInput.value.trim();
+                var expiryDateStr = expiryInput.value;
+
+                if (!supplyName) {
+                    alert(texts.supplyNamePlaceholder + texts.alertNoUsername); // texts.alertNoUsername を流用
+                    return;
+                }
+
+                if (!isValidDate(expiryDateStr)) {
+                    alert(texts.expiryDateFormatError);
+                    return;
+                }
+
+
+                var supply = {
+                    name: supplyName,
+                    expiryDate: expiryDateStr
+                };
+                marker.data.supplies.push(supply);
+
+                // 物資リストが空のメッセージを削除
+                let noSuppliesMessage = supplyListDiv.querySelector('.no-supplies');
+                if (noSuppliesMessage) {
+                    noSuppliesMessage.remove();
+                }
+
+                var supplyItemDiv = createSupplyItemElement(supply, marker, marker.data.supplies.length - 1);
+                supplyListDiv.appendChild(supplyItemDiv);
+
+
+                savePinsToStorage();
+                marker.getPopup().setContent(createPopupContent(marker)); // ポップアップを再描画して物資リストを更新
+                marker.openPopup(); // ポップアップを再度開く
+            };
+            formContainer.appendChild(addButton);
+
+            // フォームをポップアップに追加（既存のコンテンツを一旦クリア）
+            var popup = marker.getPopup();
+            popup.setContent(''); // ポップアップの内容をクリア
+            popup.setContent(formContainer); // フォームをセット
+
+
+        }
+
+        // YYYY-MM-DD形式の日付を検証する関数
+        function isValidDate(dateStr) {
+            return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+        }
+
 
         // サニタイズ関数（DOMPurifyを使用）
         function sanitize(str) {
@@ -443,7 +583,8 @@
             var pinsData = pins.map(function(pin) {
                 return {
                     latlng: pin.getLatLng(),
-                    messages: pin.data.messages
+                    messages: pin.data.messages,
+                    supplies: pin.data.supplies // 物資リストも保存
                 };
             });
             localStorage.setItem('pins', JSON.stringify(pinsData));
@@ -455,10 +596,11 @@
             if (savedPins) {
                 var pinsData = JSON.parse(savedPins);
                 pinsData.forEach(function(pinData) {
-                    var icon = pinData.messages.length > 0 ? messagePinIcon : emptyPinIcon;
+                    var icon = (pinData.messages.length > 0 || pinData.supplies.length > 0)  ? messagePinIcon : emptyPinIcon;
                     var pin = L.marker(pinData.latlng, { icon: icon }).addTo(map);
                     pin.data = {
-                        messages: pinData.messages
+                        messages: pinData.messages,
+                        supplies: pinData.supplies || [] // 物資リストをロード、ない場合は空配列で初期化
                     };
                     pin.bindPopup(createPopupContent(pin));
                     pins.push(pin);
@@ -473,109 +615,33 @@
             }, 500);
         }
 
-        // ※防災情報の取得コードは省略
-
-        /* ===============================
-           防災グッズ・非常食管理機能
-           ・品目名と賞味期限を登録し、localStorageに保存
-           ・一覧表示時、期限切れ品目は赤文字表示
-           ・期限切れの品目は通知を送信（Notification API利用）
-        =============================== */
-        let supplies = [];
-
-        function loadSupplies() {
-            const savedSupplies = localStorage.getItem('supplies');
-            if (savedSupplies) {
-                supplies = JSON.parse(savedSupplies);
-            }
-        }
-
-        function saveSupplies() {
-            localStorage.setItem('supplies', JSON.stringify(supplies));
-        }
-
-        function renderSupplyList() {
-            const supplyList = document.getElementById('supplyList');
-            supplyList.innerHTML = '';
-            supplies.forEach((supply) => {
-                const li = document.createElement('li');
-                const expirationDate = new Date(supply.expirationDate);
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                const expired = expirationDate < today;
-                li.style.color = expired ? 'red' : 'black';
-                li.textContent = supply.name + ' - 賞味期限: ' + supply.expirationDate;
-                
-                // 削除ボタン
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = '削除';
-                deleteButton.style.marginLeft = '10px';
-                deleteButton.onclick = function() {
-                    supplies = supplies.filter(item => item.id !== supply.id);
-                    saveSupplies();
-                    renderSupplyList();
-                };
-                li.appendChild(deleteButton);
-
-                supplyList.appendChild(li);
-            });
-        }
-
-        // 期限切れチェックと通知送信
-        function checkExpiredSupplies() {
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            supplies.forEach((supply) => {
-                const expirationDate = new Date(supply.expirationDate);
-                if (expirationDate < today && !supply.notified) {
-                    if (Notification && Notification.permission === 'granted') {
-                        new Notification('賞味期限切れのお知らせ', {
-                            body: supply.name + 'の賞味期限が切れています。'
-                        });
-                    }
-                    supply.notified = true;
+        // 賞味期限切れをチェックする関数
+        function checkExpiryDates() {
+            let expiredSupplies = [];
+            pins.forEach(pin => {
+                if (pin.data.supplies) {
+                    pin.data.supplies.forEach(supply => {
+                        if (new Date(supply.expiryDate) < new Date()) {
+                            expiredSupplies.push(supply.name);
+                        }
+                    });
                 }
             });
-            saveSupplies();
-            renderSupplyList();
-        }
 
-        // Notificationの許可をリクエスト
-        if (window.Notification && Notification.permission !== 'granted') {
-            Notification.requestPermission();
-        }
-
-        // supplies の初期読み込み・表示
-        loadSupplies();
-        renderSupplyList();
-
-        // 品目追加フォームの処理
-        const supplyForm = document.getElementById('supplyForm');
-        supplyForm.onsubmit = function(e) {
-            e.preventDefault();
-            const nameInput = document.getElementById('supplyName');
-            const dateInput = document.getElementById('expirationDate');
-            const name = nameInput.value.trim();
-            const expirationDate = dateInput.value;
-            if (name && expirationDate) {
-                const newSupply = {
-                    id: Date.now(),
-                    name: name,
-                    expirationDate: expirationDate,
-                    notified: false
-                };
-                supplies.push(newSupply);
-                saveSupplies();
-                renderSupplyList();
-                nameInput.value = '';
-                dateInput.value = '';
+            if (expiredSupplies.length > 0) {
+                alert(texts.expiryNotification + "\n- " + expiredSupplies.join("\n- "));
             }
-        };
+        }
 
-        // 毎分、期限切れチェックを実行
-        setInterval(checkExpiredSupplies, 60000);
-        // 初回チェック
-        checkExpiredSupplies();
+        // 1日に1回、賞味期限チェックを行う (例：ページ読み込み時と毎日午前9時)
+        checkExpiryDates(); // ページ読み込み時にチェック
+        setInterval(checkExpiryDates, 24 * 60 * 60 * 1000); // 24時間ごとにチェック (ミリ秒)
+
+
+        // 防災情報を取得する関数（省略）
+
+        // 必要に応じて防災情報の取得コードを追加してください
+
     </script>
 </body>
 </html>
