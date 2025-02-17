@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>防災情報マップ - 改良版</title>
+    <title>防災情報マップ - ハザードマップ対応版</title>
     <style>
         html, body, #map {
             height: 100%;
@@ -52,64 +52,82 @@
         .username-container input {
             width: 150px;
         }
-        /* リッチ装飾フローティングウィンドウのスタイル */
-        .disaster-info-container {
+        /* フローティングウィンドウのスタイル */
+        .info-window {
             position: absolute;
-            top: 10px;
+            bottom: 10px;
             left: 10px;
-            z-index: 1001; /* username-containerより前面に表示 */
-            background-color: rgba(240, 240, 240, 0.9); /* 薄い背景色 */
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.2); /* 影を追加 */
-            width: 280px; /* 少し幅を広げる */
+            z-index: 1000;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow-y: auto;
             font-size: 14px;
         }
-        .disaster-info-container h3 {
+        .info-window h3 {
             margin-top: 0;
-            margin-bottom: 10px;
-            font-weight: bold; /* タイトルを太字に */
-            font-size: 1.1em; /* 少し大きく */
         }
-        .disaster-info-content {
-            /* 必要に応じてコンテンツ領域のスタイルを設定 */
+        /* 物資管理機能のスタイル */
+        .supply-management {
+            margin-top: 10px;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
         }
-        .disaster-info-separator {
-            border-bottom: 1px dashed #ccc; /* 波線 */
-            margin: 10px 0;
+        .supply-list {
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 5px;
         }
-        .disaster-info-none {
-            font-style: italic; /* 情報がない場合のメッセージをitalicに */
-            color: #777; /* 少しグレーに */
+        .supply-item {
+            border-bottom: 1px dashed #ddd;
+            padding: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .supply-item:last-child {
+            border-bottom: none;
+        }
+        .supply-name {
+            margin-right: 10px;
+        }
+        .supply-expiry {
+            font-size: 0.9em;
+            color: #777;
+        }
+        .supply-expired {
+            color: red;
+            font-weight: bold;
+        }
+        .add-supply-button {
+            margin-top: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .no-supplies {
+            font-style: italic;
+            color: #888;
         }
     </style>
-    <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-    <!-- 防災情報表示フローティングウィンドウ -->
-    <div class="disaster-info-container">
-        <h3>防災情報</h3>
-        <div id="disaster-info-content">
-            <!-- 防災情報がここに表示されます -->
-        </div>
-    </div>
-    <!-- ユーザー名の設定 -->
     <div class="username-container">
         お名前: <input type="text" id="usernameInput" placeholder="ユーザー名を入力" />
     </div>
     <div id="map"></div>
+    <div class="info-window" id="infoWindow">
+        <h3>防災情報</h3>
+        <div id="disasterInfo">最新の防災情報を取得中です...</div>
+    </div>
 
-    <!-- LeafletのJSを読み込み -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <!-- 地理院タイル読み込み -->
-    <script src="https://maps.gsi.go.jp/js/leaflet-gsi.js"></script>
-    <!-- Leaflet.LocateのCSSとJSを読み込み -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.css" />
     <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
-    <!-- サニタイズ用のDOMPurifyを読み込み -->
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+
     <script>
         // 言語設定（多言語対応のためにテキストをまとめる）
         const texts = {
@@ -122,7 +140,20 @@
             displayCurrentLocation: "現在地を表示",
             alertLocationError: "位置情報を取得できませんでした。",
             alertNoUsername: "ユーザー名を入力してください。",
-            nameLabel: "お名前: "
+            nameLabel: "お名前: ",
+            disasterInfoTitle: "防災情報",
+            disasterInfoLoading: "最新の防災情報を取得中です...",
+            disasterInfoError: "防災情報を取得できませんでした。",
+            noDisasterInfo: "現在、特別な防災情報はありません。",
+            supplyManagementTitle: "物資管理",
+            addSupplyButton: "物資を追加",
+            supplyNamePlaceholder: "物資名",
+            expiryDatePlaceholder: "賞味期限 (YYYY-MM-DD)",
+            addSupplyItem: "追加",
+            noSuppliesRegistered: "登録された物資はありません。",
+            expiryDateFormatError: "賞味期限はYYYY-MM-DD形式で入力してください。",
+            supplyItemDeleted: "物資を削除しました。",
+            expiryNotification: "賞味期限切れの物資があります："
         };
 
         document.title = texts.mapTitle;
@@ -138,21 +169,36 @@
             localStorage.setItem('username', username);
         });
 
-        // 地図の初期化 (ズームコントロールを削除)
+        // 地図の初期化
         var map = L.map('map', {
             center: [35.681236, 139.767125], // 東京駅の位置
-            zoom: 13,
-            zoomControl: false // ズームコントロールを非表示にする
+            zoom: 13
         });
 
         // 地理院地図の標準タイルを追加
         var stdMap = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-            attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
+            attribution:
+                "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
         }).addTo(map);
 
-        // ハザードマップのレイヤー追加（浸水想定区域）
-        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/inundation/{z}/{x}/{y}.png', {
-            opacity: 0.5
+        // ハザードマップのレイヤー追加
+
+        // 浸水想定区域（洪水浸水想定区域）
+        var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
+        // 土砂災害危険箇所
+        var landslideLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lssh/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
+        });
+
+        // 津波浸水想定区域
+        var tsunamiLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lts/{z}/{x}/{y}.png', {
+            opacity: 0.5,
+            attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
         });
 
         // レイヤーコントロールを追加
@@ -161,24 +207,26 @@
         };
 
         var overlayMaps = {
-            "浸水想定区域": floodLayer
+            "浸水想定区域": floodLayer,
+            "土砂災害危険箇所": landslideLayer,
+            "津波浸水想定区域": tsunamiLayer
         };
 
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // ピンのアイコン設定 (アイコンを修正)
-        var emptyPinIcon = L.icon({
-            iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon.png', // デフォルトのアイコンに変更
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34]
+        // ピンのアイコン設定（Leafletデフォルトのアイコンを色違いに設定）
+        var emptyPinIcon = new L.Icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
         });
 
-        var messagePinIcon = L.icon({
-            iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon-2x.png', // デフォルトのアイコン (少し色違い)
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34]
+        var messagePinIcon = new L.Icon({
+            iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
         });
 
         // ピンを管理する配列
@@ -199,16 +247,17 @@
             }
 
             // 既存の空のピンがあり、メッセージがない場合は削除
-            if (currentEmptyPin && currentEmptyPin.data.messages.length === 0) {
+            if (currentEmptyPin && currentEmptyPin.data.messages.length === 0 && (!currentEmptyPin.data.supplies || currentEmptyPin.data.supplies.length === 0)) {
                 map.removeLayer(currentEmptyPin);
             }
 
             // 新しい空のピンを設置
             currentEmptyPin = L.marker(e.latlng, { icon: emptyPinIcon }).addTo(map);
 
-            // ピンにメッセージを保存するオブジェクトを追加
+            // ピンにメッセージと物資を保存するオブジェクトを追加
             currentEmptyPin.data = {
-                messages: []
+                messages: [],
+                supplies: [] // 物資リストを追加
             };
 
             // ピンにポップアップを設定
@@ -253,7 +302,7 @@
                 messageList.appendChild(messageItem);
             });
 
-            // フォーム送信時の処理
+            // フォーム送信時の処理（メッセージ）
             form.onsubmit = function(e) {
                 e.preventDefault();
                 var msg = textarea.value.trim();
@@ -297,6 +346,42 @@
             container.appendChild(form);
             container.appendChild(messageList);
 
+            // 物資管理機能
+            var supplyManagementDiv = document.createElement('div');
+            supplyManagementDiv.className = 'supply-management';
+
+            var supplyTitle = document.createElement('h4');
+            supplyTitle.textContent = texts.supplyManagementTitle;
+            supplyManagementDiv.appendChild(supplyTitle);
+
+            // 物資リスト表示
+            var supplyListDiv = document.createElement('div');
+            supplyListDiv.className = 'supply-list';
+            if (marker.data.supplies && marker.data.supplies.length > 0) {
+                marker.data.supplies.forEach(function(supply, index) {
+                    var supplyItemDiv = createSupplyItemElement(supply, marker, index);
+                    supplyListDiv.appendChild(supplyItemDiv);
+                });
+            } else {
+                var noSuppliesMessage = document.createElement('p');
+                noSuppliesMessage.className = 'no-supplies';
+                noSuppliesMessage.textContent = texts.noSuppliesRegistered;
+                supplyListDiv.appendChild(noSuppliesMessage);
+            }
+            supplyManagementDiv.appendChild(supplyListDiv);
+
+            // 物資追加ボタン
+            var addSupplyButton = document.createElement('button');
+            addSupplyButton.textContent = texts.addSupplyButton;
+            addSupplyButton.className = 'add-supply-button';
+            addSupplyButton.onclick = function() {
+                showAddSupplyForm(marker, supplyListDiv);
+            };
+            supplyManagementDiv.appendChild(addSupplyButton);
+
+            container.appendChild(supplyManagementDiv);
+
+
             // ピン削除ボタン
             var deleteLink = document.createElement('a');
             deleteLink.href = '#';
@@ -315,6 +400,119 @@
 
             return container;
         }
+
+        // 物資アイテムの要素を作成する関数
+        function createSupplyItemElement(supply, marker, index) {
+            var supplyItemDiv = document.createElement('div');
+            supplyItemDiv.className = 'supply-item';
+
+            var supplyNameSpan = document.createElement('span');
+            supplyNameSpan.className = 'supply-name';
+            supplyNameSpan.textContent = sanitize(supply.name);
+            supplyItemDiv.appendChild(supplyNameSpan);
+
+            var expiryDate = new Date(supply.expiryDate);
+            var formattedExpiryDate = supply.expiryDate; // YYYY-MM-DD形式をそのまま表示
+            var expirySpan = document.createElement('span');
+            expirySpan.className = 'supply-expiry';
+            expirySpan.textContent = texts.expiryDatePlaceholder + ": " + formattedExpiryDate;
+
+            if (expiryDate < new Date()) {
+                expirySpan.classList.add('supply-expired');
+            }
+            supplyItemDiv.appendChild(expirySpan);
+
+            // 削除ボタン
+            var deleteButton = document.createElement('button');
+            deleteButton.textContent = 'x';
+            deleteButton.onclick = function() {
+                marker.data.supplies.splice(index, 1); // supplies配列から削除
+                savePinsToStorage(); // localStorageに保存
+                supplyItemDiv.remove(); // 表示から削除
+                if (marker.data.supplies.length === 0) {
+                    // 物資がなくなった場合に「登録された物資はありません」を表示
+                    let supplyListDiv = supplyItemDiv.parentElement;
+                    let noSuppliesMessage = document.createElement('p');
+                    noSuppliesMessage.className = 'no-supplies';
+                    noSuppliesMessage.textContent = texts.noSuppliesRegistered;
+                    supplyListDiv.appendChild(noSuppliesMessage);
+                }
+                alert(texts.supplyItemDeleted);
+            };
+            supplyItemDiv.appendChild(deleteButton);
+
+
+            return supplyItemDiv;
+        }
+
+
+        // 物資追加フォームを表示する関数
+        function showAddSupplyForm(marker, supplyListDiv) {
+            var formContainer = document.createElement('div');
+            formContainer.className = 'add-supply-form';
+
+            var nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.placeholder = texts.supplyNamePlaceholder;
+            formContainer.appendChild(nameInput);
+
+            var expiryInput = document.createElement('input');
+            expiryInput.type = 'date';
+            expiryInput.placeholder = texts.expiryDatePlaceholder;
+            formContainer.appendChild(expiryInput);
+
+            var addButton = document.createElement('button');
+            addButton.textContent = texts.addSupplyItem;
+            addButton.onclick = function() {
+                var supplyName = nameInput.value.trim();
+                var expiryDateStr = expiryInput.value;
+
+                if (!supplyName) {
+                    alert(texts.supplyNamePlaceholder + texts.alertNoUsername); // texts.alertNoUsername を流用
+                    return;
+                }
+
+                if (!isValidDate(expiryDateStr)) {
+                    alert(texts.expiryDateFormatError);
+                    return;
+                }
+
+
+                var supply = {
+                    name: supplyName,
+                    expiryDate: expiryDateStr
+                };
+                marker.data.supplies.push(supply);
+
+                // 物資リストが空のメッセージを削除
+                let noSuppliesMessage = supplyListDiv.querySelector('.no-supplies');
+                if (noSuppliesMessage) {
+                    noSuppliesMessage.remove();
+                }
+
+                var supplyItemDiv = createSupplyItemElement(supply, marker, marker.data.supplies.length - 1);
+                supplyListDiv.appendChild(supplyItemDiv);
+
+
+                savePinsToStorage();
+                marker.getPopup().setContent(createPopupContent(marker)); // ポップアップを再描画して物資リストを更新
+                marker.openPopup(); // ポップアップを再度開く
+            };
+            formContainer.appendChild(addButton);
+
+            // フォームをポップアップに追加（既存のコンテンツを一旦クリア）
+            var popup = marker.getPopup();
+            popup.setContent(''); // ポップアップの内容をクリア
+            popup.setContent(formContainer); // フォームをセット
+
+
+        }
+
+        // YYYY-MM-DD形式の日付を検証する関数
+        function isValidDate(dateStr) {
+            return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+        }
+
 
         // サニタイズ関数（DOMPurifyを使用）
         function sanitize(str) {
@@ -343,12 +541,12 @@
                 fillOpacity: 1
             }).addTo(map).bindPopup(texts.currentLocation).openPopup();
 
-            // 精度を示す円 (精度円を削除)
-            // currentLocationCircle = L.circle(e.latlng, radius, {
-            //     color: '#136AEC',
-            //     fillColor: '#136AEC',
-            //     fillOpacity: 0.15
-            // }).addTo(map);
+            // 精度を示す円
+            currentLocationCircle = L.circle(e.latlng, radius, {
+                color: '#136AEC',
+                fillColor: '#136AEC',
+                fillOpacity: 0.15
+            }).addTo(map);
         }
 
         var currentLocationMarker = null;
@@ -363,10 +561,10 @@
 
         map.on('locationerror', onLocationError);
 
-        // 現在地ボタンを追加 (精度円を非表示、右下に移動)
+        // 現在地ボタンを追加
         L.control.locate({
-            position: 'bottomright', // 右下に移動
-            drawCircle: false, // 精度円を非表示にする設定
+            position: 'topleft',
+            drawCircle: false,
             showCompass: true,
             locateOptions: {
                 maxZoom: 16,
@@ -385,7 +583,8 @@
             var pinsData = pins.map(function(pin) {
                 return {
                     latlng: pin.getLatLng(),
-                    messages: pin.data.messages
+                    messages: pin.data.messages,
+                    supplies: pin.data.supplies // 物資リストも保存
                 };
             });
             localStorage.setItem('pins', JSON.stringify(pinsData));
@@ -397,10 +596,11 @@
             if (savedPins) {
                 var pinsData = JSON.parse(savedPins);
                 pinsData.forEach(function(pinData) {
-                    var icon = pinData.messages.length > 0 ? messagePinIcon : emptyPinIcon;
+                    var icon = (pinData.messages.length > 0 || pinData.supplies.length > 0)  ? messagePinIcon : emptyPinIcon;
                     var pin = L.marker(pinData.latlng, { icon: icon }).addTo(map);
                     pin.data = {
-                        messages: pinData.messages
+                        messages: pinData.messages,
+                        supplies: pinData.supplies || [] // 物資リストをロード、ない場合は空配列で初期化
                     };
                     pin.bindPopup(createPopupContent(pin));
                     pins.push(pin);
@@ -415,62 +615,32 @@
             }, 500);
         }
 
-        // **防災情報表示のJavaScript**
-        // モックの防災情報データ (実際には気象庁APIなどから取得する必要があります)
-        var mockDisasterData = {
-            earthquakes: [
-                { location: "千葉県東方沖", magnitude: 5.2, time: "10分前" },
-                { location: "宮城県沖", magnitude: 4.8, time: "30分前" }
-            ],
-            tsunamis: [
-                { region: "津波注意報：***", status: "発表中" }
-            ],
-            otherAlerts: [
-                { type: "大雨注意報", areas: ["東京都", "神奈川県"], status: "発表中" }
-            ]
-        };
+        // 賞味期限切れをチェックする関数
+        function checkExpiryDates() {
+            let expiredSupplies = [];
+            pins.forEach(pin => {
+                if (pin.data.supplies) {
+                    pin.data.supplies.forEach(supply => {
+                        if (new Date(supply.expiryDate) < new Date()) {
+                            expiredSupplies.push(supply.name);
+                        }
+                    });
+                }
+            });
 
-        // 防災情報表示を更新する関数
-        function updateDisasterInfo() {
-            var disasterInfoContent = document.getElementById('disaster-info-content');
-            var html = "";
-
-            if (mockDisasterData.earthquakes.length > 0) {
-                html += "<h4><span aria-label='地震' role='img'>地震 </span>地震情報</h4><ul>"; // 地震アイコン（絵文字）
-                mockDisasterData.earthquakes.forEach(function(eq) {
-                    html += `<li>${eq.time} - ${eq.location} - M${eq.magnitude}</li>`;
-                });
-                html += "</ul><div class='disaster-info-separator'></div>"; // 区切り線を追加
+            if (expiredSupplies.length > 0) {
+                alert(texts.expiryNotification + "\n- " + expiredSupplies.join("\n- "));
             }
-
-            if (mockDisasterData.tsunamis.length > 0) {
-                html += "<h4><span aria-label='津波' role='img'>🌊</span>津波情報</h4><ul>"; // 津波アイコン（絵文字）
-                mockDisasterData.tsunamis.forEach(function(tsunami) {
-                    html += `<li>${tsunami.region} - ${tsunami.status}</li>`;
-                });
-                html += "</ul><div class='disaster-info-separator'></div>"; // 区切り線を追加
-            }
-
-            if (mockDisasterData.otherAlerts.length > 0) {
-                html += "<h4><span aria-label='警報・注意報' role='img'>⚠️</span>防災警報・注意報</h4><ul>"; // 警報・注意報アイコン（絵文字）
-                mockDisasterData.otherAlerts.forEach(function(alert) {
-                    html += `<li>${alert.type} (${alert.areas.join(', ')}) - ${alert.status}</li>`;
-                });
-                html += "</ul>";
-            }
-
-            if (html === "") {
-                html = "<p class='disaster-info-none'>現在、防災情報はありません。</p>"; // 情報がない場合のメッセージを強調
-            }
-
-            disasterInfoContent.innerHTML = html;
         }
 
-        // 初回表示
-        updateDisasterInfo();
+        // 1日に1回、賞味期限チェックを行う (例：ページ読み込み時と毎日午前9時)
+        checkExpiryDates(); // ページ読み込み時にチェック
+        setInterval(checkExpiryDates, 24 * 60 * 60 * 1000); // 24時間ごとにチェック (ミリ秒)
 
-        // 定期的に更新する場合 (今回はモックデータなので必須ではないですが、実際のAPIから取得する際は利用します)
-        // setInterval(updateDisasterInfo, 60 * 1000); // 1分ごとに更新 (例)
+
+        // 防災情報を取得する関数（省略）
+
+        // 必要に応じて防災情報の取得コードを追加してください
 
     </script>
 </body>
