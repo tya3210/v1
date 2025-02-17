@@ -44,7 +44,7 @@
       position: absolute;
       top: 10px;
       right: 10px;
-      z-index: 1000;
+      z-index: 1100;
       background: rgba(255,255,255,0.9);
       padding: 10px;
       border-radius: 5px;
@@ -52,12 +52,12 @@
     .username-container input {
       width: 150px;
     }
-    /* フローティングウィンドウ：防災情報 */
+    /* 防災情報ウィンドウ */
     .info-window {
       position: absolute;
       bottom: 10px;
       left: 10px;
-      z-index: 1000;
+      z-index: 1100;
       background: rgba(255,255,255,0.9);
       padding: 10px;
       border-radius: 5px;
@@ -73,8 +73,8 @@
     #supplyManager {
       position: absolute;
       top: 10px;
-      left: 100px;  /* 現在地ボタン・ズームコントロールの右側へ */
-      z-index: 1000;
+      left: 100px;
+      z-index: 1100;
       background: rgba(255,255,255,0.95);
       padding: 10px;
       border-radius: 5px;
@@ -183,7 +183,7 @@
       attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html'>地理院タイル</a>"
     }).addTo(map);
 
-    // ハザードマップレイヤー
+    // 災害別ハザードマップレイヤー
     var floodLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png', {
       opacity: 0.5,
       attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
@@ -196,12 +196,12 @@
       opacity: 0.5,
       attribution: "<a href='https://www.gsi.go.jp/bousaichiri/hazardmap.html'>国土地理院ハザードマップ</a>"
     });
-    var baseMaps = { "標準地図": stdMap };
     var overlayMaps = {
       "浸水想定区域": floodLayer,
       "土砂災害危険箇所": landslideLayer,
       "津波浸水想定区域": tsunamiLayer
     };
+    var baseMaps = { "標準地図": stdMap };
     L.control.layers(baseMaps, overlayMaps).addTo(map);
 
     // ピンアイコン設定
