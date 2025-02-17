@@ -1,239 +1,435 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>防災情報マップ - 完成版</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        /* 基本スタイル */
-        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-        #map { height: 500px; margin-top: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-        
-        /* コントロールパネル */
-        .control-panel {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-        
-        /* モーダル関連 */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-            z-index: 1001;
-            max-width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        
-        /* 災害情報パネル */
-        .disaster-alert {
-            background: #ffebee;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 8px;
-            border-left: 5px solid #ff5252;
-        }
-    </style>
-    
-    <!-- 必要なライブラリ -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+  <meta charset="UTF-8">
+  <title>防災情報マップ - 完成版</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    /* 全体のレイアウト調整 */
+    body, html {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 60vh;
+    }
+    .language-selector, .username-container, .medical-info-button, .disaster-info-button {
+      margin: 10px;
+    }
+    /* モーダル用スタイル */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 500px;
+      position: relative;
+    }
+    .close {
+      color: #aaa;
+      position: absolute;
+      right: 10px;
+      top: 5px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close:hover, .close:focus {
+      color: black;
+    }
+    /* 災害情報の各イベント表示 */
+    .disaster-event {
+      border: 1px solid #ddd;
+      margin: 10px 0;
+      padding: 10px;
+    }
+    .disaster-event h3 {
+      margin: 0 0 5px 0;
+    }
+  </style>
 </head>
 <body>
-    <!-- 言語選択 -->
-    <div class="language-selector">
-        <select id="languageSelect">
-            <option value="ja">日本語</option>
-            <option value="en">English</option>
-        </select>
+  <!-- 言語選択メニュー -->
+  <div class="language-selector">
+      <label for="languageSelect">Language:</label>
+      <select id="languageSelect">
+          <option value="ja">日本語</option>
+          <option value="en">English</option>
+      </select>
+  </div>
+  <!-- ユーザー名の設定 -->
+  <div class="username-container">
+      <label for="usernameInput" id="nameLabel"></label>
+      <input type="text" id="usernameInput" placeholder="" />
+  </div>
+  <!-- 医療情報ボタン -->
+  <div class="medical-info-button">
+      <button id="openMedicalInfo"></button>
+  </div>
+  <!-- 防災情報ボタン -->
+  <div class="disaster-info-button">
+      <button id="openDisasterInfo"></button>
+  </div>
+  <!-- マップ表示エリア -->
+  <div id="map"></div>
+  
+  <!-- 医療情報モーダル -->
+  <div id="medicalModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closeMedicalModal">&times;</span>
+      <h2 id="medicalInfoTitle"></h2>
+      <form id="medicalForm">
+        <label for="healthStatus">健康状態:</label><br>
+        <input type="text" id="healthStatus" name="healthStatus"><br><br>
+        <label for="allergies">アレルギー:</label><br>
+        <input type="text" id="allergies" name="allergies"><br><br>
+        <label for="medications">服用中の薬:</label><br>
+        <input type="text" id="medications" name="medications"><br><br>
+        <label for="emergencyContact">緊急連絡先:</label><br>
+        <input type="text" id="emergencyContact" name="emergencyContact"><br><br>
+        <button type="submit" id="saveMedicalInfo"></button>
+      </form>
+      <br>
+      <button onclick="exportData()" id="exportDataBtn"></button>
+      <button onclick="importData()" id="importDataBtn"></button>
+      <button onclick="logout()" id="logoutBtn"></button>
     </div>
-
-    <!-- コントロールパネル -->
-    <div class="control-panel">
-        <button id="btnShelters">避難所表示</button>
-        <button id="btnChecklist">防災チェックリスト</button>
-        <button id="btnEmergency">緊急連絡先</button>
-        <button id="btnSimulate">洪水シミュレーション</button>
+  </div>
+  
+  <!-- 防災情報モーダル -->
+  <div id="disasterModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closeDisasterModal">&times;</span>
+      <h2 id="disasterInfoTitle"></h2>
+      <div id="disasterInfoContent"></div>
     </div>
+  </div>
+  
+  <!-- 必要なライブラリの読み込み -->
+  <!-- LeafletのJS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- CryptoJSの読み込み -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <!-- DOMPurifyの読み込み -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+  <!-- Leaflet.LocateのJS -->
+  <script src="https://unpkg.com/leaflet.locatecontrol/dist/L.Control.Locate.min.js"></script>
+  
+  <script>
+    // 多言語対応のテキスト設定
+    const texts = {
+      'ja': {
+        mapTitle: "防災情報マップ",
+        placeholderMessage: "伝言を入力してください",
+        placeholderUsername: "ユーザー名を入力",
+        postButton: "投稿",
+        deletePin: "このピンを削除",
+        currentLocation: "現在地",
+        displayCurrentLocation: "現在地を表示",
+        alertLocationError: "位置情報を取得できませんでした。",
+        alertNoUsername: "ユーザー名を入力してください。",
+        nameLabel: "お名前:",
+        disasterInfoTitle: "防災情報",
+        disasterInfoLoading: "最新の防災情報を取得中です...",
+        disasterInfoError: "防災情報を取得できませんでした。",
+        noDisasterInfo: "現在、特別な防災情報はありません。",
+        openMedicalInfo: "医療情報の入力・確認",
+        openDisasterInfo: "防災情報の確認",
+        medicalInfoTitle: "パーソナル医療情報",
+        saveButton: "保存",
+        closeButton: "閉じる",
+        exportData: "データをエクスポート",
+        importData: "データをインポート",
+        enterPassword: "パスワードを入力してください",
+        confirmPassword: "パスワードを確認してください",
+        login: "ログイン",
+        logout: "ログアウト",
+        passwordMismatch: "パスワードが一致しません。",
+        incorrectPassword: "パスワードが間違っています。",
+        medicalInfoSaved: "医療情報を保存しました。"
+      },
+      'en': {
+        mapTitle: "Disaster Information Map",
+        placeholderMessage: "Enter your message",
+        placeholderUsername: "Enter your username",
+        postButton: "Post",
+        deletePin: "Delete this pin",
+        currentLocation: "Current Location",
+        displayCurrentLocation: "Show current location",
+        alertLocationError: "Failed to get location.",
+        alertNoUsername: "Please enter your username.",
+        nameLabel: "Name:",
+        disasterInfoTitle: "Disaster Information",
+        disasterInfoLoading: "Loading latest disaster information...",
+        disasterInfoError: "Failed to load disaster information.",
+        noDisasterInfo: "No special disaster information at this time.",
+        openMedicalInfo: "Medical Info Input/View",
+        openDisasterInfo: "View Disaster Information",
+        medicalInfoTitle: "Personal Medical Information",
+        saveButton: "Save",
+        closeButton: "Close",
+        exportData: "Export Data",
+        importData: "Import Data",
+        enterPassword: "Enter Password",
+        confirmPassword: "Confirm Password",
+        login: "Login",
+        logout: "Logout",
+        passwordMismatch: "Passwords do not match.",
+        incorrectPassword: "Incorrect password.",
+        medicalInfoSaved: "Medical information has been saved."
+      }
+    };
 
-    <!-- 災害情報表示エリア -->
-    <div id="disasterInfo"></div>
+    var currentLang = 'ja';
+    // テキストの設定
+    function setTexts() {
+      var t = texts[currentLang];
+      document.title = t.mapTitle;
+      document.getElementById('nameLabel').textContent = t.nameLabel;
+      document.getElementById('usernameInput').placeholder = t.placeholderUsername;
+      document.getElementById('openMedicalInfo').textContent = t.openMedicalInfo;
+      document.getElementById('openDisasterInfo').textContent = t.openDisasterInfo;
+      document.getElementById('medicalInfoTitle').textContent = t.medicalInfoTitle;
+      document.getElementById('saveMedicalInfo').textContent = t.saveButton;
+      document.getElementById('exportDataBtn').textContent = t.exportData;
+      document.getElementById('importDataBtn').textContent = t.importData;
+      document.getElementById('logoutBtn').textContent = t.logout;
+      document.getElementById('disasterInfoTitle').textContent = t.disasterInfoTitle;
+    }
+    setTexts();
+    document.getElementById('languageSelect').addEventListener('change', function() {
+      currentLang = this.value;
+      setTexts();
+    });
 
-    <!-- マップ表示エリア -->
-    <div id="map"></div>
+    // Leafletマップの初期化（東京付近を中心に表示）
+    var map = L.map('map').setView([35.6895, 139.6917], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data © OpenStreetMap contributors'
+    }).addTo(map);
 
-    <!-- モーダル：防災チェックリスト -->
-    <div id="checklistModal" class="modal">
-        <h3 id="checklistTitle"></h3>
-        <div id="checklistItems"></div>
-        <button id="closeChecklist"></button>
-    </div>
+    // 災害情報用レイヤー（以前のマーカーはクリアする）
+    var disasterMarkersLayer = L.layerGroup().addTo(map);
 
-    <!-- モーダル：緊急連絡先 -->
-    <div id="emergencyModal" class="modal">
-        <h3 id="emergencyTitle"></h3>
-        <ul id="emergencyContacts"></ul>
-        <button id="closeEmergency"></button>
-    </div>
-
-    <!-- スクリプト -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script>
-        // 多言語対応テキスト
-        const texts = {
-            'ja': {
-                shelters: '避難所',
-                checklistTitle: '防災チェックリスト',
-                emergencyTitle: '緊急連絡先',
-                contacts: [
-                    {name: '消防署', number: '119'},
-                    {name: '警察', number: '110'},
-                    {name: '災害用伝言板', number: '171'}
-                ],
-                checklistItems: [
-                    '非常用飲料水（1人3リットル）',
-                    '3日分の非常食',
-                    '懐中電灯',
-                    'ラジオ',
-                    '救急セット'
-                ]
-            },
-            'en': {
-                shelters: 'Shelters',
-                checklistTitle: 'Emergency Checklist',
-                emergencyTitle: 'Emergency Contacts',
-                contacts: [
-                    {name: 'Fire Department', number: '119'},
-                    {name: 'Police', number: '110'},
-                    {name: 'Disaster Message Board', number: '171'}
-                ],
-                checklistItems: [
-                    'Drinking water (3L per person)',
-                    '3-day emergency food',
-                    'Flashlight',
-                    'Radio',
-                    'First aid kit'
-                ]
-            }
-        };
-
-        // マップ初期化
-        const map = L.map('map').setView([35.6815, 139.7671], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        // 避難所データ（サンプル）
-        const shelters = [
-            {
-                name: '第一避難所',
-                location: [35.682, 139.768],
-                capacity: 500,
-                facilities: ['水', '食料', '毛布']
-            },
-            {
-                name: '第二避難所',
-                location: [35.678, 139.762],
-                capacity: 300,
-                facilities: ['水', '簡易ベッド']
-            }
-        ];
-
-        // 避難所マーカー表示
-        function showShelters() {
-            shelters.forEach(shelter => {
-                const marker = L.marker(shelter.location)
-                    .bindPopup(`
-                        <b>${shelter.name}</b><br>
-                        収容人数: ${shelter.capacity}<br>
-                        設備: ${shelter.facilities.join(', ')}
-                    `).addTo(map);
-            });
+    // 防災情報モーダルを開く処理
+    document.getElementById('openDisasterInfo').addEventListener('click', function() {
+      openDisasterModal();
+    });
+    function openDisasterModal() {
+      var modal = document.getElementById('disasterModal');
+      var contentDiv = document.getElementById('disasterInfoContent');
+      modal.style.display = 'block';
+      contentDiv.innerHTML = texts[currentLang].disasterInfoLoading;
+      // ダミーの防災情報を取得（実際にはAPI連携などに置き換え可能）
+      fetchDisasterInfo().then(function(data) {
+        if (data && data.length > 0) {
+          var html = '';
+          data.forEach(function(event) {
+            html += '<div class="disaster-event" data-id="' + event.id + '">';
+            html += '<h3>' + event.title + '</h3>';
+            html += '<p>' + event.description + '</p>';
+            html += '<button onclick="zoomToDisaster(' + event.lat + ', ' + event.lng + ')">' + texts[currentLang].currentLocation + 'に移動</button>';
+            html += '</div>';
+          });
+          contentDiv.innerHTML = html;
+          addDisasterMarkersToMap(data);
+        } else {
+          contentDiv.innerHTML = texts[currentLang].noDisasterInfo;
         }
-
-        // チェックリスト表示
-        function showChecklist() {
-            const modal = document.getElementById('checklistModal');
-            const items = texts[currentLang].checklistItems.map(item => `
-                <label>
-                    <input type="checkbox"> ${item}
-                </label><br>
-            `).join('');
-            document.getElementById('checklistItems').innerHTML = items;
-            modal.style.display = 'block';
+      }).catch(function(error) {
+        contentDiv.innerHTML = texts[currentLang].disasterInfoError;
+      });
+    }
+    // 防災情報ダミーデータ取得関数（setTimeoutで疑似API）
+    function fetchDisasterInfo() {
+      return new Promise(function(resolve, reject) {
+        setTimeout(function() {
+          var data = [
+            { id: 1, title: "地震情報", description: "本日午前、東京でマグニチュード5.2の地震が発生しました。", lat: 35.6895, lng: 139.6917 },
+            { id: 2, title: "大雨警報", description: "大阪周辺で大雨の警報が発令されています。", lat: 34.6937, lng: 135.5023 }
+          ];
+          resolve(data);
+        }, 1000);
+      });
+    }
+    // 地図に防災情報マーカーを追加
+    function addDisasterMarkersToMap(data) {
+      disasterMarkersLayer.clearLayers();
+      data.forEach(function(event) {
+        var marker = L.marker([event.lat, event.lng])
+          .bindPopup('<b>' + event.title + '</b><br>' + event.description);
+        disasterMarkersLayer.addLayer(marker);
+      });
+    }
+    // 指定地点に地図をズームする
+    function zoomToDisaster(lat, lng) {
+      map.setView([lat, lng], 13);
+    }
+    // モーダルの閉じるボタン処理（防災情報）
+    document.getElementById('closeDisasterModal').onclick = function() {
+      document.getElementById('disasterModal').style.display = 'none';
+    };
+    
+    // 医療情報関連の実装（暗号化保存など）
+    var medicalPassword = '';
+    var isLoggedIn = false;
+    function saveMedicalInfoEncrypted(data, password) {
+      var ciphertext = CryptoJS.AES.encrypt(JSON.stringify(data), password).toString();
+      localStorage.setItem('medicalInfo', ciphertext);
+    }
+    function loadMedicalInfoDecrypted(password) {
+      var ciphertext = localStorage.getItem('medicalInfo');
+      if (ciphertext) {
+        try {
+          var bytes = CryptoJS.AES.decrypt(ciphertext, password);
+          var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+          return decryptedData;
+        } catch (e) {
+          return null;
         }
-
-        // 緊急連絡先表示
-        function showEmergencyContacts() {
-            const modal = document.getElementById('emergencyModal');
-            const contacts = texts[currentLang].contacts.map(contact => `
-                <li>${contact.name}: ${contact.number}</li>
-            `).join('');
-            document.getElementById('emergencyContacts').innerHTML = contacts;
-            modal.style.display = 'block';
+      } else {
+        return { healthStatus: '', allergies: '', medications: '', emergencyContact: '' };
+      }
+    }
+    function initialLogin() {
+      var password = prompt(texts[currentLang].enterPassword);
+      if (password) {
+        var confirmPassword = prompt(texts[currentLang].confirmPassword);
+        if (password === confirmPassword) {
+          medicalPassword = password;
+          isLoggedIn = true;
+          alert(texts[currentLang].medicalInfoSaved);
+          openMedicalModal();
+        } else {
+          alert(texts[currentLang].passwordMismatch);
         }
-
-        // 洪水シミュレーション
-        function simulateFlood() {
-            const floodArea = L.polygon([
-                [35.680, 139.765],
-                [35.678, 139.770],
-                [35.675, 139.768]
-            ], {color: 'blue', fillOpacity: 0.3}).addTo(map)
-            .bindPopup('浸水想定区域');
+      }
+    }
+    function login() {
+      var password = prompt(texts[currentLang].enterPassword);
+      if (password) {
+        var medicalInfo = loadMedicalInfoDecrypted(password);
+        if (medicalInfo) {
+          medicalPassword = password;
+          isLoggedIn = true;
+          openMedicalModal(medicalInfo);
+        } else {
+          alert(texts[currentLang].incorrectPassword);
         }
-
-        // イベントリスナー設定
-        document.getElementById('btnShelters').addEventListener('click', showShelters);
-        document.getElementById('btnChecklist').addEventListener('click', showChecklist);
-        document.getElementById('btnEmergency').addEventListener('click', showEmergencyContacts);
-        document.getElementById('btnSimulate').addEventListener('click', simulateFlood);
-
-        // モーダル閉じる処理
-        document.querySelectorAll('.modal button').forEach(button => {
-            button.addEventListener('click', () => {
-                button.parentElement.style.display = 'none';
-            });
-        });
-
-        // リアルタイム災害情報取得
-        async function fetchDisasterAlerts() {
+      }
+    }
+    function logout() {
+      medicalPassword = '';
+      isLoggedIn = false;
+      alert(texts[currentLang].logout);
+    }
+    function openMedicalModal(medicalInfo) {
+      if (!medicalInfo) {
+        medicalInfo = loadMedicalInfoDecrypted(medicalPassword);
+      }
+      document.getElementById('healthStatus').value = medicalInfo.healthStatus;
+      document.getElementById('allergies').value = medicalInfo.allergies;
+      document.getElementById('medications').value = medicalInfo.medications;
+      document.getElementById('emergencyContact').value = medicalInfo.emergencyContact;
+      document.getElementById('medicalModal').style.display = 'block';
+    }
+    document.getElementById('openMedicalInfo').onclick = function() {
+      if (isLoggedIn) {
+        openMedicalModal();
+      } else {
+        var hasMedicalInfo = localStorage.getItem('medicalInfo');
+        if (hasMedicalInfo) {
+          login();
+        } else {
+          initialLogin();
+        }
+      }
+    };
+    // 医療情報フォームの送信処理
+    document.getElementById('medicalForm').onsubmit = function(e) {
+      e.preventDefault();
+      var medicalInfo = {
+        healthStatus: document.getElementById('healthStatus').value.trim(),
+        allergies: document.getElementById('allergies').value.trim(),
+        medications: document.getElementById('medications').value.trim(),
+        emergencyContact: document.getElementById('emergencyContact').value.trim()
+      };
+      saveMedicalInfoEncrypted(medicalInfo, medicalPassword);
+      alert(texts[currentLang].medicalInfoSaved);
+      document.getElementById('medicalModal').style.display = 'none';
+    };
+    // 医療情報のエクスポート
+    function exportData() {
+      if (isLoggedIn) {
+        var medicalInfo = loadMedicalInfoDecrypted(medicalPassword);
+        var dataStr = JSON.stringify(medicalInfo);
+        var blob = new Blob([dataStr], {type: "application/json"});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'medical_info.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        alert(texts[currentLang].alertNoUsername);
+      }
+    }
+    // 医療情報のインポート
+    function importData() {
+      if (isLoggedIn) {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.onchange = function(e) {
+          var file = e.target.files[0];
+          var reader = new FileReader();
+          reader.onload = function(evt) {
             try {
-                const response = await fetch('https://api.example.com/disaster-alerts');
-                const data = await response.json();
-                displayAlerts(data);
-            } catch (error) {
-                console.error('災害情報の取得に失敗しました:', error);
+              var importedData = JSON.parse(evt.target.result);
+              saveMedicalInfoEncrypted(importedData, medicalPassword);
+              alert(texts[currentLang].medicalInfoSaved);
+            } catch (err) {
+              alert('データのインポートに失敗しました。');
             }
-        }
-
-        function displayAlerts(alerts) {
-            const container = document.getElementById('disasterInfo');
-            container.innerHTML = alerts.map(alert => `
-                <div class="disaster-alert">
-                    <h4>${alert.title}</h4>
-                    <p>${alert.description}</p>
-                    <small>${new Date(alert.date).toLocaleString()}</small>
-                </div>
-            `).join('');
-        }
-
-        // 初期化処理
-        fetchDisasterAlerts();
-        L.control.locate().addTo(map);
-    </script>
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      } else {
+        alert(texts[currentLang].alertNoUsername);
+      }
+    }
+    // 医療情報モーダルの閉じるボタン処理
+    document.getElementById('closeMedicalModal').onclick = function() {
+      document.getElementById('medicalModal').style.display = 'none';
+    };
+    // モーダル外クリックで閉じる処理（両モーダル共通）
+    window.onclick = function(event) {
+      var medModal = document.getElementById('medicalModal');
+      var disModal = document.getElementById('disasterModal');
+      if (event.target == medModal) {
+        medModal.style.display = 'none';
+      }
+      if (event.target == disModal) {
+        disModal.style.display = 'none';
+      }
+    };
+  </script>
 </body>
 </html>
