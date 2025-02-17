@@ -69,6 +69,41 @@
         .info-window h3 {
             margin-top: 0;
         }
+        /* 防災グッズ・非常食管理用ウィンドウ */
+        #supplyManager {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            font-size: 14px;
+        }
+        #supplyManager h3 {
+            margin-top: 0;
+        }
+        #supplyManager form div {
+            margin-bottom: 5px;
+        }
+        #supplyManager input[type="text"],
+        #supplyManager input[type="date"] {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #supplyManager ul {
+            list-style: none;
+            padding-left: 0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        #supplyManager li {
+            margin-bottom: 5px;
+        }
+        #supplyManager button {
+            font-size: 12px;
+        }
     </style>
     <!-- LeafletのCSSを読み込み -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -83,6 +118,24 @@
     <div class="info-window" id="infoWindow">
         <h3>防災情報</h3>
         <div id="disasterInfo">最新の防災情報を取得中です...</div>
+    </div>
+    <!-- 防災グッズ・非常食管理ウィンドウ -->
+    <div id="supplyManager">
+        <h3>防災グッズ・非常食管理</h3>
+        <form id="supplyForm">
+            <div>
+                <label for="supplyName">品目:</label>
+                <input type="text" id="supplyName" placeholder="例：非常食セット" required />
+            </div>
+            <div>
+                <label for="expirationDate">賞味期限:</label>
+                <input type="date" id="expirationDate" required />
+            </div>
+            <div>
+                <input type="submit" value="追加" />
+            </div>
+        </form>
+        <ul id="supplyList"></ul>
     </div>
 
     <!-- 必要なスクリプトの読み込み -->
@@ -420,10 +473,109 @@
             }, 500);
         }
 
-        // 防災情報を取得する関数（省略）
+        // ※防災情報の取得コードは省略
 
-        // 必要に応じて防災情報の取得コードを追加してください
+        /* ===============================
+           防災グッズ・非常食管理機能
+           ・品目名と賞味期限を登録し、localStorageに保存
+           ・一覧表示時、期限切れ品目は赤文字表示
+           ・期限切れの品目は通知を送信（Notification API利用）
+        =============================== */
+        let supplies = [];
 
+        function loadSupplies() {
+            const savedSupplies = localStorage.getItem('supplies');
+            if (savedSupplies) {
+                supplies = JSON.parse(savedSupplies);
+            }
+        }
+
+        function saveSupplies() {
+            localStorage.setItem('supplies', JSON.stringify(supplies));
+        }
+
+        function renderSupplyList() {
+            const supplyList = document.getElementById('supplyList');
+            supplyList.innerHTML = '';
+            supplies.forEach((supply) => {
+                const li = document.createElement('li');
+                const expirationDate = new Date(supply.expirationDate);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const expired = expirationDate < today;
+                li.style.color = expired ? 'red' : 'black';
+                li.textContent = supply.name + ' - 賞味期限: ' + supply.expirationDate;
+                
+                // 削除ボタン
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = '削除';
+                deleteButton.style.marginLeft = '10px';
+                deleteButton.onclick = function() {
+                    supplies = supplies.filter(item => item.id !== supply.id);
+                    saveSupplies();
+                    renderSupplyList();
+                };
+                li.appendChild(deleteButton);
+
+                supplyList.appendChild(li);
+            });
+        }
+
+        // 期限切れチェックと通知送信
+        function checkExpiredSupplies() {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            supplies.forEach((supply) => {
+                const expirationDate = new Date(supply.expirationDate);
+                if (expirationDate < today && !supply.notified) {
+                    if (Notification && Notification.permission === 'granted') {
+                        new Notification('賞味期限切れのお知らせ', {
+                            body: supply.name + 'の賞味期限が切れています。'
+                        });
+                    }
+                    supply.notified = true;
+                }
+            });
+            saveSupplies();
+            renderSupplyList();
+        }
+
+        // Notificationの許可をリクエスト
+        if (window.Notification && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+        }
+
+        // supplies の初期読み込み・表示
+        loadSupplies();
+        renderSupplyList();
+
+        // 品目追加フォームの処理
+        const supplyForm = document.getElementById('supplyForm');
+        supplyForm.onsubmit = function(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('supplyName');
+            const dateInput = document.getElementById('expirationDate');
+            const name = nameInput.value.trim();
+            const expirationDate = dateInput.value;
+            if (name && expirationDate) {
+                const newSupply = {
+                    id: Date.now(),
+                    name: name,
+                    expirationDate: expirationDate,
+                    notified: false
+                };
+                supplies.push(newSupply);
+                saveSupplies();
+                renderSupplyList();
+                nameInput.value = '';
+                dateInput.value = '';
+            }
+        };
+
+        // 毎分、期限切れチェックを実行
+        setInterval(checkExpiredSupplies, 60000);
+        // 初回チェック
+        checkExpiredSupplies();
     </script>
 </body>
 </html>
